@@ -8,9 +8,11 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/Ventilateur/helia-nails/core/models"
 	twmodels "github.com/Ventilateur/helia-nails/treatwell/models"
 	"github.com/Ventilateur/helia-nails/utils"
 )
@@ -96,8 +98,8 @@ func (tw *Treatwell) Login(user, password string) error {
 	return nil
 }
 
-func (tw *Treatwell) GetCalendar(from, to time.Time) (*twmodels.Calendar, error) {
-	return doRequestWithResponse[twmodels.Calendar](
+func (tw *Treatwell) ListAppointments(from, to time.Time) (map[string]models.Appointment, error) {
+	twCalendar, err := doRequestWithResponse[twmodels.Calendar](
 		tw,
 		http.MethodGet,
 		apiURL+"/venue/"+tw.venueID+"/calendar.json",
@@ -110,6 +112,38 @@ func (tw *Treatwell) GetCalendar(from, to time.Time) (*twmodels.Calendar, error)
 			"date-to":                  to.Format(time.DateOnly),
 		},
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	appointments := map[string]models.Appointment{}
+	for _, appointment := range twCalendar.Appointments {
+		start, end, err := utils.ParseFromToTimes(
+			fmt.Sprintf("%sT%s:00", appointment.AppointmentDate, appointment.StartTime),
+			fmt.Sprintf("%sT%s:00", appointment.AppointmentDate, appointment.EndTime),
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		var id string
+		if strings.Contains(appointment.Notes, "customID:") {
+
+		}
+		id = strconv.Itoa(appointment.Id)
+
+		appointments[id] = models.Appointment{
+			Id:        id,
+			Source:    appointment.Source(),
+			Employee:  appointment.EmployeeName,
+			StartTime: start,
+			EndTime:   end,
+			Offer:     appointment.OfferName,
+			Notes:     appointment.Notes,
+		}
+	}
+
+	return appointments, nil
 }
 
 type BookAppointmentsRequest struct {
@@ -118,7 +152,13 @@ type BookAppointmentsRequest struct {
 	AnonymousNote   *string                `json:"anonymousNote"`
 }
 
-func (tw *Treatwell) BookAnonymously(
+//func (tw *Treatwell) BookAnonymously(appointment models.Appointment) error {
+//	twAppointment := twmodels.Appointment{
+//		Id: appointment.Id,
+//	}
+//}
+
+func (tw *Treatwell) bookAnonymously(
 	appointment twmodels.Appointment,
 	clientName string,
 	employees twmodels.Employees,

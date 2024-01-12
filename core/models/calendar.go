@@ -2,26 +2,19 @@ package models
 
 import "time"
 
-type Source int
+type Source string
 
 const (
-	SourceTreatwell Source = iota
+	SourceTreatwell Source = "Treatwell"
+	SourceClassPass Source = "ClassPass"
 )
 
-type Calendar struct {
-	Appointments []Appointment `json:"appointments"`
-}
-
 type Appointment struct {
-	Id           int       `json:"id"`
-	Source       Source    `json:"source"`
-	Platform     string    `json:"platform"`
-	EmployeeId   int       `json:"employeeId"`
-	EmployeeName string    `json:"employeeName"`
-	StartTime    time.Time `json:"startTime"`
-	EndTime      time.Time `json:"endTime"`
-	OfferId      int       `json:"offerId"`
-	OfferName    string    `json:"offerName"`
-	Notes        string    `json:"notes,omitempty"`
-	Extra        string
+	Id        string    `json:"id"`
+	Source    Source    `json:"source"`
+	Employee  string    `json:"employee"`
+	StartTime time.Time `json:"startTime"`
+	EndTime   time.Time `json:"endTime"`
+	Offer     string    `json:"offer"`
+	Notes     string    `json:"notes,omitempty"`
 }

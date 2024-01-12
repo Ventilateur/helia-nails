@@ -1,12 +1,11 @@
 package models
 
 import (
-	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Ventilateur/helia-nails/core/models"
-	ics "github.com/arran4/golang-ical"
 )
 
 type Calendar struct {
@@ -78,66 +77,10 @@ func (a *Appointment) EndAt() (time.Time, error) {
 	return time.Parse(time.DateTime, fmt.Sprintf("%s %s:00", a.AppointmentDate, a.EndTime))
 }
 
-func (c *Calendar) ICal() (string, error) {
-	cal := ics.NewCalendar()
-
-	for _, appointment := range c.Appointments {
-		cal.Events()
-		event := cal.AddEvent(fmt.Sprintf("%d", appointment.Id))
-
-		start, err := appointment.StartAt()
-		if err != nil {
-			return "", err
-		}
-
-		end, err := appointment.EndAt()
-		if err != nil {
-			return "", err
-		}
-
-		event.SetStartAt(start)
-		event.SetEndAt(end)
-
-		b, err := json.Marshal(appointment)
-		if err != nil {
-			return "", err
-		}
-
-		event.SetLocation("TREATWELL")
-
-		event.SetDescription(string(b))
+func (a *Appointment) Source() models.Source {
+	if strings.Contains(a.AnonymousNote, "ClassPass") {
+		return models.SourceClassPass
 	}
 
-	return cal.Serialize(), nil
-}
-
-func (c *Calendar) CommonCalendar() (models.Calendar, error) {
-	ret := models.Calendar{
-		Appointments: make([]models.Appointment, len(c.Appointments)),
-	}
-
-	for _, a := range c.Appointments {
-		start, err := a.StartAt()
-		if err != nil {
-			return ret, err
-		}
-
-		end, err := a.EndAt()
-		if err != nil {
-			return ret, err
-		}
-
-		ret.Appointments = append(ret.Appointments, models.Appointment{
-			Id:           a.Id,
-			Platform:     "TREATWELL",
-			EmployeeId:   a.EmployeeId,
-			EmployeeName: a.EmployeeName,
-			StartTime:    start,
-			EndTime:      end,
-			OfferId:      a.OfferId,
-			OfferName:    a.OfferName,
-		})
-	}
-
-	return ret, nil
+	return models.SourceTreatwell
 }
