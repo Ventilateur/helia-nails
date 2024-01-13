@@ -2,10 +2,7 @@ package models
 
 import (
 	"fmt"
-	"strings"
 	"time"
-
-	"github.com/Ventilateur/helia-nails/core/models"
 )
 
 type Calendar struct {
@@ -54,7 +51,7 @@ type Appointment struct {
 	SkuId                              int           `json:"skuId"`
 	OrderItemIds                       []interface{} `json:"orderItemIds"`
 	AppointmentGroupIds                []interface{} `json:"appointmentGroupIds"`
-	TreatwellFeePercentage             int           `json:"treatwellFeePercentage"`
+	TreatwellFeePercentage             float64       `json:"treatwellFeePercentage"`
 	ConsumerConsentedForMarketingComms bool          `json:"consumerConsentedForMarketingComms"`
 	ConsumerPrepaymentRequired         bool          `json:"consumerPrepaymentRequired"`
 	WalkIn                             bool          `json:"walkIn"`
@@ -69,18 +66,20 @@ type Appointment struct {
 	ServiceId                          int           `json:"serviceId"`
 }
 
-func (a *Appointment) StartAt() (time.Time, error) {
-	return time.Parse(time.DateTime, fmt.Sprintf("%s %s:00", a.AppointmentDate, a.StartTime))
-}
-
-func (a *Appointment) EndAt() (time.Time, error) {
-	return time.Parse(time.DateTime, fmt.Sprintf("%s %s:00", a.AppointmentDate, a.EndTime))
-}
-
-func (a *Appointment) Source() models.Source {
-	if strings.Contains(a.AnonymousNote, "ClassPass") {
-		return models.SourceClassPass
+func (a *Appointment) StartAt() time.Time {
+	t, err := time.Parse(time.DateTime, fmt.Sprintf("%s %s:00", a.AppointmentDate, a.StartTime))
+	if err != nil {
+		panic(fmt.Errorf("invalid date time for [%s %s]: %w", a.AppointmentDate, a.StartTime, err))
 	}
 
-	return models.SourceTreatwell
+	return t
+}
+
+func (a *Appointment) EndAt() time.Time {
+	t, err := time.Parse(time.DateTime, fmt.Sprintf("%s %s:00", a.AppointmentDate, a.EndTime))
+	if err != nil {
+		panic(fmt.Errorf("invalid date time for [%s %s]: %w", a.AppointmentDate, a.EndTime, err))
+	}
+
+	return t
 }

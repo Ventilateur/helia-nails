@@ -10,11 +10,12 @@ const (
 )
 
 type Appointment struct {
-	Id        string    `json:"id"`
-	Source    Source    `json:"source"`
-	Employee  string    `json:"employee"`
-	StartTime time.Time `json:"startTime"`
-	EndTime   time.Time `json:"endTime"`
-	Offer     string    `json:"offer"`
-	Notes     string    `json:"notes,omitempty"`
+	Id         string    `json:"id"`
+	Source     Source    `json:"source"`
+	Employee   string    `json:"employee"`
+	StartTime  time.Time `json:"startTime"`
+	EndTime    time.Time `json:"endTime"`
+	Offer      string    `json:"offer"`
+	ClientName string    `json:"clientName"`
+	Notes      string    `json:"notes,omitempty"`
 }

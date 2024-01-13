@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Ventilateur/helia-nails/core/models"
+	"github.com/Ventilateur/helia-nails/mapping"
 	twmodels "github.com/Ventilateur/helia-nails/treatwell/models"
 	"github.com/Ventilateur/helia-nails/utils"
 )
@@ -25,8 +26,9 @@ const (
 type Treatwell struct {
 	httpClient *http.Client
 
-	venueID   string
-	employees []twmodels.Employee
+	venueID              string
+	employees            *twmodels.Employees
+	employeeWorkingHours *twmodels.EmployeesWorkingHours
 }
 
 func New(httpClient *http.Client, venueID string) (*Treatwell, error) {
@@ -34,6 +36,22 @@ func New(httpClient *http.Client, venueID string) (*Treatwell, error) {
 		httpClient: httpClient,
 		venueID:    venueID,
 	}, nil
+}
+
+func (tw *Treatwell) Preload(from, to time.Time) error {
+	var err error
+
+	tw.employees, err = tw.GetEmployeesInfo()
+	if err != nil {
+		return fmt.Errorf("failed to get employees info: %w", err)
+	}
+
+	tw.employeeWorkingHours, err = tw.GetAllEmployeesWorkingHours(from, to)
+	if err != nil {
+		return fmt.Errorf("failed to get employees working hours: %w", err)
+	}
+
+	return nil
 }
 
 func (tw *Treatwell) bootstrapCookie() error {
@@ -99,19 +117,7 @@ func (tw *Treatwell) Login(user, password string) error {
 }
 
 func (tw *Treatwell) ListAppointments(from, to time.Time) (map[string]models.Appointment, error) {
-	twCalendar, err := doRequestWithResponse[twmodels.Calendar](
-		tw,
-		http.MethodGet,
-		apiURL+"/venue/"+tw.venueID+"/calendar.json",
-		nil,
-		map[string]string{
-			"include":                  "appointments",
-			"appointment-status-codes": "CR,CN,NS,CP",
-			"utm_source":               "calendar-regular",
-			"date-from":                from.Format(time.DateOnly),
-			"date-to":                  to.Format(time.DateOnly),
-		},
-	)
+	twCalendar, err := tw.GetCalendar(from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -126,15 +132,14 @@ func (tw *Treatwell) ListAppointments(from, to time.Time) (map[string]models.App
 			return nil, err
 		}
 
-		var id string
-		if strings.Contains(appointment.Notes, "customID:") {
-
+		source, id := utils.ParseCustomID(appointment.Notes)
+		if id == "" {
+			id = strconv.Itoa(appointment.Id)
 		}
-		id = strconv.Itoa(appointment.Id)
 
 		appointments[id] = models.Appointment{
 			Id:        id,
-			Source:    appointment.Source(),
+			Source:    source,
 			Employee:  appointment.EmployeeName,
 			StartTime: start,
 			EndTime:   end,
@@ -152,21 +157,45 @@ type BookAppointmentsRequest struct {
 	AnonymousNote   *string                `json:"anonymousNote"`
 }
 
-//func (tw *Treatwell) BookAnonymously(appointment models.Appointment) error {
-//	twAppointment := twmodels.Appointment{
-//		Id: appointment.Id,
-//	}
-//}
+func (tw *Treatwell) BookAnonymously(appointment models.Appointment) error {
+	offer, ok := mapping.TreatWellOffers[appointment.Offer]
+	if !ok {
+		return fmt.Errorf("no Treatwell offer found for [%s]", appointment.Offer)
+	}
 
-func (tw *Treatwell) bookAnonymously(
-	appointment twmodels.Appointment,
-	clientName string,
-	employees twmodels.Employees,
-	employeeWorkingHours twmodels.EmployeesWorkingHours,
-	calendar twmodels.Calendar,
-) error {
-	slotFound := false
-	employeeId := 0
+	twAppointment := &twmodels.Appointment{
+		AppointmentDate: appointment.StartTime.Format(time.DateOnly),
+		StartTime:       fmt.Sprintf("%02d:%02d", appointment.StartTime.Hour(), appointment.StartTime.Minute()),
+		EndTime:         fmt.Sprintf("%02d:%02d", appointment.EndTime.Hour(), appointment.EndTime.Minute()),
+		Platform:        "DESKTOP",
+		Notes:           fmt.Sprintf("${%s:%s}", string(appointment.Source), appointment.Id),
+		ServiceId:       offer.OfferID,
+		Skus: []twmodels.Sku{
+			{
+				SkuId: offer.SkuID,
+			},
+		},
+	}
+
+	calendar, err := tw.GetCalendar(appointment.StartTime, appointment.EndTime)
+	if err != nil {
+		return fmt.Errorf("failed to get calendar: %w", err)
+	}
+
+	err = tw.bookAnonymously(twAppointment, appointment.ClientName, calendar)
+	if err != nil {
+		return fmt.Errorf("failed to book TW: %w", err)
+	}
+
+	return nil
+}
+
+func findBookableEmployee(
+	appointment *twmodels.Appointment,
+	employees *twmodels.Employees,
+	employeeWorkingHours *twmodels.EmployeesWorkingHours,
+	calendar *twmodels.Calendar,
+) (employeeID int, slotFound bool) {
 	for _, employee := range employees.Employees {
 		canOffer := slices.Contains(employee.EmployeeOffers, appointment.ServiceId)
 		if !canOffer {
@@ -178,37 +207,42 @@ func (tw *Treatwell) bookAnonymously(
 		for _, employeesWorkingHour := range employeeWorkingHours.EmployeesWorkingHours {
 			if employeesWorkingHour.EmployeeID == employee.Id {
 				for _, workingHour := range employeesWorkingHour.WorkingHours {
-					if workingHour.Date == appointment.AppointmentDate &&
-						len(workingHour.TimeSlots) > 0 &&
+					if workingHour.Date == appointment.AppointmentDate && len(workingHour.TimeSlots) > 0 &&
 						workingHour.TimeSlots[0].TimeFrom <= appointment.StartTime &&
-						workingHour.TimeSlots[0].TimeTo <= appointment.EndTime {
+						workingHour.TimeSlots[0].TimeTo >= appointment.EndTime {
 
 						// Employee works at the requested hour
 						for _, bookedAppointment := range calendar.Appointments {
-							if bookedAppointment.AppointmentDate == appointment.AppointmentDate {
-								if bookedAppointment.StartTime < appointment.EndTime || appointment.StartTime < bookedAppointment.EndTime {
+							if bookedAppointment.AppointmentDate == appointment.AppointmentDate && bookedAppointment.EmployeeId == employee.Id {
+								overlapped = isOverlapping(bookedAppointment, *appointment)
+								if overlapped {
 									// Overlapped booking
-									overlapped = true
 									break
 								}
 							}
 						}
 
-						break
+						if !overlapped {
+							return employee.Id, true
+						}
 					}
 				}
 				break
 			}
 		}
-
-		if !overlapped {
-			slotFound = true
-			employeeId = employee.Id
-		}
 	}
 
+	return 0, false
+}
+
+func isOverlapping(a, b twmodels.Appointment) bool {
+	return a.StartAt().Compare(b.EndAt()) < 0 && a.EndAt().Compare(b.StartAt()) > 0
+}
+
+func (tw *Treatwell) bookAnonymously(appointment *twmodels.Appointment, clientName string, calendar *twmodels.Calendar) error {
+	employeeID, slotFound := findBookableEmployee(appointment, tw.employees, tw.employeeWorkingHours, calendar)
 	if !slotFound {
-		return fmt.Errorf("no slot found for service %q at [%s-%s] on %s",
+		return fmt.Errorf("no slot found for service %d at [%s-%s] on %s",
 			appointment.ServiceId,
 			appointment.StartTime,
 			appointment.EndTime,
@@ -216,17 +250,17 @@ func (tw *Treatwell) bookAnonymously(
 		)
 	}
 
-	appointment.EmployeeId = employeeId
+	appointment.EmployeeId = employeeID
 
 	reqBody := &BookAppointmentsRequest{
-		Appointments:    []twmodels.Appointment{appointment},
+		Appointments:    []twmodels.Appointment{*appointment},
 		VenueCustomerID: nil,
 		AnonymousNote:   &clientName,
 	}
 
 	payload, err := json.Marshal(reqBody)
 	if err != nil {
-		return utils.ErrUnmarshalJSON
+		return fmt.Errorf("%s: %w", utils.ErrUnmarshalJSON, err)
 	}
 
 	return doRequestWithoutResponse(
@@ -238,9 +272,26 @@ func (tw *Treatwell) bookAnonymously(
 	)
 }
 
-func (tw *Treatwell) GetEmployeeWorkingHours(employeeIDs []string, from, to time.Time) (*twmodels.EmployeesWorkingHours, error) {
-	for _, employee := range tw.employees {
-		employeeIDs = append(employeeIDs, fmt.Sprintf("%d", employee.Id))
+func (tw *Treatwell) GetCalendar(fromDate, toDate time.Time) (*twmodels.Calendar, error) {
+	return doRequestWithResponse[twmodels.Calendar](
+		tw,
+		http.MethodGet,
+		apiURL+"/venue/"+tw.venueID+"/calendar.json",
+		nil,
+		map[string]string{
+			"include":                  "appointments",
+			"appointment-status-codes": "CR,CN,NS,CP",
+			"utm_source":               "calendar-regular",
+			"date-from":                fromDate.Format(time.DateOnly),
+			"date-to":                  toDate.Format(time.DateOnly),
+		},
+	)
+}
+
+func (tw *Treatwell) GetAllEmployeesWorkingHours(from, to time.Time) (*twmodels.EmployeesWorkingHours, error) {
+	var employeeIDs []string
+	for _, employee := range tw.employees.Employees {
+		employeeIDs = append(employeeIDs, strconv.Itoa(employee.Id))
 	}
 
 	return doRequestWithResponse[twmodels.EmployeesWorkingHours](
@@ -249,13 +300,13 @@ func (tw *Treatwell) GetEmployeeWorkingHours(employeeIDs []string, from, to time
 		apiURL+"/venue/"+tw.venueID+"/employees/"+strings.Join(employeeIDs, ",")+"/working-hours.json",
 		nil,
 		map[string]string{
-			"date-from": from.Format(time.DateOnly),
-			"date-to":   to.Format(time.DateOnly),
+			"from": from.Format(time.DateOnly),
+			"to":   to.Format(time.DateOnly),
 		},
 	)
 }
 
-func (tw *Treatwell) GetEmployeeInfo() (*twmodels.Employees, error) {
+func (tw *Treatwell) GetEmployeesInfo() (*twmodels.Employees, error) {
 	return doRequestWithResponse[twmodels.Employees](
 		tw,
 		http.MethodGet,
@@ -290,14 +341,23 @@ func doRequestWithResponse[T any](tw *Treatwell, method, u string, body io.Reade
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	ok := func() bool {
+		switch resp.StatusCode {
+		case http.StatusOK, http.StatusCreated, http.StatusNoContent:
+			return true
+		default:
+			return false
+		}
+	}()
+
+	if !ok {
 		return nil, utils.UnexpectedErrorCode(resp.StatusCode)
 	}
 
 	var ret T
 	err = json.NewDecoder(resp.Body).Decode(&ret)
 	if err != nil {
-		return nil, utils.ErrUnmarshalJSON
+		return nil, fmt.Errorf("%s: %w", utils.ErrUnmarshalJSON, err)
 	}
 
 	return &ret, nil
@@ -310,7 +370,16 @@ func doRequestWithoutResponse(tw *Treatwell, method, u string, body io.Reader, p
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	ok := func() bool {
+		switch resp.StatusCode {
+		case http.StatusOK, http.StatusCreated, http.StatusNoContent:
+			return true
+		default:
+			return false
+		}
+	}()
+
+	if !ok {
 		return utils.UnexpectedErrorCode(resp.StatusCode)
 	}
 
