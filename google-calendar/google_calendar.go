@@ -3,6 +3,7 @@ package google_calendar
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Ventilateur/helia-nails/core/models"
@@ -80,6 +81,10 @@ func (c *GoogleCalendar) List(calendarID string, from time.Time, to time.Time) (
 		start, end, err := utils.ParseFromToTimes(item.Start.DateTime, item.End.DateTime)
 		if err != nil {
 			return nil, err
+		}
+
+		if strings.Contains(item.Summary, "ClassPass Booking") {
+
 		}
 
 		appointments[item.Id] = models.Appointment{

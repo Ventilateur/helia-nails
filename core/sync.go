@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/Ventilateur/helia-nails/core/models"
@@ -90,7 +91,11 @@ func (s *Sync) GoogleCalendarToTreatwell(calendarID string, from time.Time, to t
 			}
 		} else {
 			// if the GG event is not on TW and needs to be added
-			//s.tw.BookAnonymously()
+
+			err = s.tw.BookAnonymously(event)
+			if err != nil {
+				return fmt.Errorf("failed to book Treatwell from event %s: %w", event.Id, err)
+			}
 		}
 	}
 
