@@ -5,19 +5,19 @@ import (
 	"time"
 
 	"github.com/Ventilateur/helia-nails/core/models"
-	googlecalendar "github.com/Ventilateur/helia-nails/google-calendar"
+	googlecalendar "github.com/Ventilateur/helia-nails/googlecalendar"
 	"github.com/Ventilateur/helia-nails/treatwell"
 )
 
 type Sync struct {
 	tw *treatwell.Treatwell
-	ga *googlecalendar.GoogleCalendar
+	gc *googlecalendar.GoogleCalendar
 }
 
 func New(tw *treatwell.Treatwell, ga *googlecalendar.GoogleCalendar) *Sync {
 	return &Sync{
 		tw: tw,
-		ga: ga,
+		gc: ga,
 	}
 }
 
@@ -27,7 +27,7 @@ func (s *Sync) TreatwellToGoogleCalendar(calendarID string, from time.Time, to t
 		return err
 	}
 
-	ggEvents, err := s.ga.List(calendarID, from, to)
+	ggEvents, err := s.gc.List(calendarID, from, to)
 	if err != nil {
 		return err
 	}
@@ -41,14 +41,14 @@ func (s *Sync) TreatwellToGoogleCalendar(calendarID string, from time.Time, to t
 		if event, ok := ggEvents[id]; ok {
 			if needUpdate(appointment, event) {
 				// if the TW appointment is already on GG and needs to be updated
-				err = s.ga.Update(calendarID, id, appointment)
+				err = s.gc.Update(calendarID, id, appointment)
 				if err != nil {
 					return err
 				}
 			}
 		} else {
 			// if the TW appointment is not on GG and needs to be added
-			err = s.ga.Book(calendarID, appointment)
+			err = s.gc.Book(calendarID, appointment)
 			if err != nil {
 				return err
 			}
@@ -58,7 +58,7 @@ func (s *Sync) TreatwellToGoogleCalendar(calendarID string, from time.Time, to t
 	for id, event := range ggEvents {
 		if _, ok := twAppointments[id]; !ok && event.Source == models.SourceTreatwell {
 			// If the GG is marked as TW source but doesn't exist in TW, then delete it (case when an appointment is deleted)
-			err = s.ga.DeleteAppointment(calendarID, id)
+			err = s.gc.DeleteAppointment(calendarID, id)
 			if err != nil {
 				return err
 			}
@@ -68,13 +68,18 @@ func (s *Sync) TreatwellToGoogleCalendar(calendarID string, from time.Time, to t
 	return nil
 }
 
-func (s *Sync) GoogleCalendarToTreatwell(calendarID string, from time.Time, to time.Time, exceptSource models.Source) error {
+func (s *Sync) GoogleCalendarToTreatwell(calendarID string, from time.Time, to time.Time) error {
+	err := s.tw.Preload(from, to)
+	if err != nil {
+		return fmt.Errorf("failed to preload Treatwell info: %w", err)
+	}
+
 	twAppointments, err := s.tw.ListAppointments(from, to)
 	if err != nil {
 		return err
 	}
 
-	ggEvents, err := s.ga.List(calendarID, from, to)
+	ggEvents, err := s.gc.List(calendarID, from, to)
 	if err != nil {
 		return err
 	}
@@ -91,7 +96,6 @@ func (s *Sync) GoogleCalendarToTreatwell(calendarID string, from time.Time, to t
 			}
 		} else {
 			// if the GG event is not on TW and needs to be added
-
 			err = s.tw.BookAnonymously(event)
 			if err != nil {
 				return fmt.Errorf("failed to book Treatwell from event %s: %w", event.Id, err)
@@ -114,7 +118,7 @@ func needUpdate(a1, a2 models.Appointment) bool {
 //	}
 //
 //	for _, employee := range []string{"Tee", "Minette", "Jade", "Chloé"} {
-//		appointments, err := s.ga.List(employee, from, to)
+//		appointments, err := s.gc.List(employee, from, to)
 //		if err != nil {
 //			return err
 //		}
