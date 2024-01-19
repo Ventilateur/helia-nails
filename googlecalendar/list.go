@@ -18,6 +18,7 @@ var (
 func (c *GoogleCalendar) List(calendarID string, from time.Time, to time.Time) (map[string]models.Appointment, error) {
 	events, err := c.svc.Events.List(calendarID).
 		SingleEvents(true).
+		ShowDeleted(false).
 		MaxResults(1000).
 		TimeMin(from.Format(time.RFC3339)).
 		TimeMax(to.Format(time.RFC3339)).
@@ -33,7 +34,7 @@ func (c *GoogleCalendar) List(calendarID string, from time.Time, to time.Time) (
 			return nil, fmt.Errorf("failed to parse Google event: %w", err)
 		}
 
-		appointments[item.Id] = *appointment
+		appointments[appointment.Id] = *appointment
 	}
 
 	return appointments, nil
@@ -45,28 +46,37 @@ func parseGoogleEvent(event *calendar.Event) (*models.Appointment, error) {
 		return nil, fmt.Errorf("failed to parse from/to times: %w", err)
 	}
 
-	// ClassPass
+	_, id := utils.ParseCustomID(event.Description)
+	if id == "" {
+		id = event.Id
+	}
+
+	// Created by ClassPass
 	matches := classPassGoogleCalendarSummary.FindStringSubmatch(event.Summary)
 	if len(matches) == 3 {
 		return &models.Appointment{
-			Id:         event.Id,
-			Source:     models.SourceClassPass,
-			Employee:   "Unknown",
-			StartTime:  start,
-			EndTime:    end,
-			Offer:      strings.TrimSpace(matches[2]),
-			ClientName: matches[1],
+			Id:               id,
+			Source:           models.SourceClassPass,
+			Employee:         "Unknown",
+			StartTime:        start,
+			EndTime:          end,
+			Offer:            strings.TrimSpace(matches[2]),
+			ClientName:       matches[1],
+			OriginalPlatform: models.PlatformGoogle,
+			OriginalID:       event.Id,
 		}, nil
 	}
 
 	// Created by sync
 	return &models.Appointment{
-		Id:        event.Id,
-		Source:    models.Source(event.Location),
-		Employee:  "Unknown",
-		StartTime: start,
-		EndTime:   end,
-		Offer:     event.Summary,
-		Notes:     event.Description,
+		Id:               id,
+		Source:           models.Source(event.Location),
+		Employee:         "Unknown",
+		StartTime:        start,
+		EndTime:          end,
+		Offer:            event.Summary,
+		Notes:            event.Description,
+		OriginalPlatform: models.PlatformGoogle,
+		OriginalID:       event.Id,
 	}, nil
 }

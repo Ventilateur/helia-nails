@@ -2,6 +2,7 @@ package utils
 
 import (
 	"regexp"
+	"slices"
 	"time"
 
 	"github.com/Ventilateur/helia-nails/core/models"
@@ -32,7 +33,7 @@ func ParseFromToTimes(t1Str, t2Str string) (time.Time, time.Time, error) {
 		}
 	}
 
-	return t1.In(time.Local), t2.In(time.Local), err
+	return t1, t2, err
 }
 
 func ParseCustomID(s string) (models.Source, string) {
@@ -43,4 +44,28 @@ func ParseCustomID(s string) (models.Source, string) {
 	}
 
 	return models.SourceTreatwell, ""
+}
+
+func BoD(t time.Time) time.Time {
+	year, month, day := t.Date()
+	return time.Date(year, month, day, 0, 0, 0, 0, t.Location())
+}
+
+func EoD(t time.Time) time.Time {
+	year, month, day := t.Date()
+	return time.Date(year, month, day, 23, 59, 59, 0, t.Location())
+}
+
+func MapToOrderedSlice(m map[string]models.Appointment) []models.Appointment {
+	var ret []models.Appointment
+
+	for _, a := range m {
+		ret = append(ret, a)
+	}
+
+	slices.SortFunc(ret, func(a1, a2 models.Appointment) int {
+		return a1.StartTime.Compare(a2.StartTime)
+	})
+
+	return ret
 }

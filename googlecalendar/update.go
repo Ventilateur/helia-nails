@@ -12,13 +12,15 @@ func (c *GoogleCalendar) Update(calendarID string, eventID string, appointment m
 	_, err := c.svc.Events.Patch(calendarID, eventID, &calendar.Event{
 		Start: &calendar.EventDateTime{
 			DateTime: appointment.StartTime.Format(time.RFC3339),
+			TimeZone: defaultIANATz,
 		},
 		End: &calendar.EventDateTime{
 			DateTime: appointment.EndTime.Format(time.RFC3339),
+			TimeZone: defaultIANATz,
 		},
 	}).Do()
 	if err != nil {
-		return fmt.Errorf("failed to update event %s: %w", eventID, err)
+		return fmt.Errorf("failed to update event %s: %w", appointment, err)
 	}
 
 	return nil

@@ -14,14 +14,14 @@ import (
 func (tw *Treatwell) ListAppointments(from, to time.Time) (map[string]models.Appointment, error) {
 	twCalendar, err := tw.getCalendar(from, to)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get calendar: %w", err)
 	}
 
 	appointments := map[string]models.Appointment{}
 	for _, appointment := range twCalendar.Appointments {
 		start, end, err := utils.ParseFromToTimes(
-			fmt.Sprintf("%sT%s:00", appointment.AppointmentDate, appointment.StartTime),
-			fmt.Sprintf("%sT%s:00", appointment.AppointmentDate, appointment.EndTime),
+			fmt.Sprintf("%sT%s:00+01:00", appointment.AppointmentDate, appointment.StartTime),
+			fmt.Sprintf("%sT%s:00+01:00", appointment.AppointmentDate, appointment.EndTime),
 		)
 		if err != nil {
 			return nil, err
@@ -33,13 +33,16 @@ func (tw *Treatwell) ListAppointments(from, to time.Time) (map[string]models.App
 		}
 
 		appointments[id] = models.Appointment{
-			Id:        id,
-			Source:    source,
-			Employee:  appointment.EmployeeName,
-			StartTime: start,
-			EndTime:   end,
-			Offer:     appointment.OfferName,
-			Notes:     appointment.Notes,
+			Id:               id,
+			Source:           source,
+			Employee:         appointment.EmployeeName,
+			ClientName:       appointment.ConsumerName,
+			StartTime:        start,
+			EndTime:          end,
+			Offer:            appointment.OfferName,
+			Notes:            appointment.Notes,
+			OriginalPlatform: models.PlatformTreatwell,
+			OriginalID:       strconv.Itoa(appointment.Id),
 		}
 	}
 
