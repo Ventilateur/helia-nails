@@ -67,9 +67,9 @@ func (s *Sync) TreatwellToGoogleCalendar(calendarID string, from time.Time, to t
 	for _, event := range utils.MapToOrderedSlice(ggEvents) {
 		if _, ok := twAppointments[event.Id]; !ok && event.Source == models.SourceTreatwell {
 			// If the GG is marked as TW source but doesn't exist in TW, then delete it (case when an appointment is deleted)
-			err = s.gc.DeleteAppointment(calendarID, event.Id)
+			err = s.gc.DeleteAppointment(calendarID, event.OriginalID)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to delete event %s: %w", event, err)
 			}
 			slog.Info(fmt.Sprintf("Delete: %s", event.String()))
 		}
