@@ -1,6 +1,6 @@
 
 AWS_ACCOUNT_ID := 851725466447
-VERSION := 3
+VERSION := 4
 IMAGE_TAG := $(AWS_ACCOUNT_ID).dkr.ecr.eu-west-3.amazonaws.com/helia-nails/calendar-sync:$(VERSION)
 
 build:
