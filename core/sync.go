@@ -36,31 +36,31 @@ func (s *Sync) TreatwellToGoogleCalendar(calendarID string, from time.Time, to t
 		return err
 	}
 
-	for _, appointment := range utils.MapToOrderedSlice(twAppointments) {
+	for _, twAppointment := range utils.MapToOrderedSlice(twAppointments) {
 		// Ignore to avoid duplication
-		if appointment.Source == exceptSource {
-			slog.Info(fmt.Sprintf("Ignore: %s", appointment))
+		if twAppointment.Source == exceptSource {
+			slog.Info(fmt.Sprintf("Ignore: %s", twAppointment))
 			continue
 		}
 
-		if event, ok := ggEvents[appointment.Id]; ok {
-			if needUpdate(appointment, event) {
+		if ggEvent, ok := ggEvents[twAppointment.Id]; ok {
+			if needUpdate(twAppointment, ggEvent) {
 				// if the TW appointment is already on GG and needs to be updated
-				err = s.gc.Update(calendarID, event.OriginalID, appointment)
+				err = s.gc.Update(calendarID, ggEvent.OriginalID, twAppointment)
 				if err != nil {
 					return err
 				}
-				slog.Info(fmt.Sprintf("Update: %s to %s", event, appointment))
+				slog.Info(fmt.Sprintf("Update: %s to %s", ggEvent, twAppointment))
 			} else {
-				slog.Info(fmt.Sprintf("Keep: %s", event))
+				slog.Info(fmt.Sprintf("Keep: %s", ggEvent))
 			}
 		} else {
 			// if the TW appointment is not on GG and needs to be added
-			err = s.gc.Book(calendarID, appointment)
+			err = s.gc.Book(calendarID, twAppointment)
 			if err != nil {
 				return err
 			}
-			slog.Info(fmt.Sprintf("Add: %s", appointment))
+			slog.Info(fmt.Sprintf("Add: %s", twAppointment))
 		}
 	}
 
