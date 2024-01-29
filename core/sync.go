@@ -73,12 +73,12 @@ func (s *Sync) TreatwellToGoogleCalendar(employee string, from time.Time, to tim
 
 	for _, event := range utils.MapToOrderedSlice(ggEvents) {
 		if _, ok := twAppointments[event.Id]; !ok && event.Source == models.SourceTreatwell {
-			// If the GG is marked as TW source but doesn't exist in TW, then delete it (case when an appointment is deleted)
+			// If the GG event is marked as TW source but doesn't exist in TW, then delete it (case when an appointment is deleted)
 			err = s.gc.DeleteAppointment(calendarID, event.OriginalID)
 			if err != nil {
 				return fmt.Errorf("failed to delete event %s: %w", event, err)
 			}
-			slog.Info(fmt.Sprintf("Delete: %s", event.String()))
+			slog.Info(fmt.Sprintf("Delete: %s", event))
 		}
 	}
 
@@ -122,6 +122,17 @@ func (s *Sync) GoogleCalendarToTreatwell(employee string, from time.Time, to tim
 				return fmt.Errorf("failed to book Treatwell from event %s: %w", event.Id, err)
 			}
 			slog.Info(fmt.Sprintf("Add: %s", event))
+		}
+	}
+
+	for _, twAppointment := range utils.MapToOrderedSlice(twAppointments) {
+		if _, ok := ggEvents[twAppointment.Id]; !ok && twAppointment.Source != models.SourceTreatwell {
+			// If the TW appointment is marked as GG source but doesn't exist in GG, then delete it (case when an appointment is deleted)
+			err = s.tw.Delete(twAppointment.OriginalID)
+			if err != nil {
+				return fmt.Errorf("failed to delete appointment %s: %w", twAppointment, err)
+			}
+			slog.Info(fmt.Sprintf("Delete: %s", twAppointment))
 		}
 	}
 
