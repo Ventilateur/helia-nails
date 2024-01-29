@@ -29,6 +29,10 @@ func (c *GoogleCalendar) List(calendarID string, from time.Time, to time.Time) (
 
 	appointments := map[string]models.Appointment{}
 	for _, item := range events.Items {
+		if item.Summary == BlockEventName {
+			continue
+		}
+
 		appointment, err := parseGoogleEvent(item)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse Google event: %w", err)
@@ -41,7 +45,7 @@ func (c *GoogleCalendar) List(calendarID string, from time.Time, to time.Time) (
 }
 
 func parseGoogleEvent(event *calendar.Event) (*models.Appointment, error) {
-	start, end, err := utils.ParseFromToTimes(event.Start.DateTime, event.End.DateTime)
+	start, end, err := utils.ParseTimes(event.Start.DateTime, event.End.DateTime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse from/to times: %w", err)
 	}

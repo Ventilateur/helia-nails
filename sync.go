@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -11,6 +12,7 @@ import (
 	"github.com/Ventilateur/helia-nails/core"
 	"github.com/Ventilateur/helia-nails/core/models"
 	"github.com/Ventilateur/helia-nails/googlecalendar"
+	"github.com/Ventilateur/helia-nails/mapping"
 	"github.com/Ventilateur/helia-nails/treatwell"
 	"github.com/Ventilateur/helia-nails/utils"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -83,14 +85,28 @@ func syncAll(ctx context.Context) error {
 	from := utils.BoD(time.Now().Add(24 * time.Hour))
 	to := utils.EoD(from.Add(7 * 24 * time.Hour))
 
-	err = sync.TreatwellToGoogleCalendar(googlecalendar.ClassPassCalendarID, from, to, models.SourceClassPass)
+	err = tw.Preload(from, to)
 	if err != nil {
-		return fmt.Errorf("failed to sync TW to Google: %w", err)
+		return fmt.Errorf("failed to preload TW data: %w", err)
 	}
 
-	err = sync.GoogleCalendarToTreatwell(googlecalendar.ClassPassCalendarID, from, to)
-	if err != nil {
-		return fmt.Errorf("failed to sync Google to TW: %w", err)
+	for _, employee := range mapping.AllEmployees {
+		slog.Info(fmt.Sprintf("Start sync for %s", employee))
+
+		err = sync.SyncWorkingHours(employee, from, to)
+		if err != nil {
+			return fmt.Errorf("failed to sync working hours to Google: %w", err)
+		}
+
+		err = sync.TreatwellToGoogleCalendar(employee, from, to, models.SourceClassPass)
+		if err != nil {
+			return fmt.Errorf("failed to sync TW to Google: %w", err)
+		}
+
+		err = sync.GoogleCalendarToTreatwell(employee, from, to)
+		if err != nil {
+			return fmt.Errorf("failed to sync Google to TW: %w", err)
+		}
 	}
 
 	return nil

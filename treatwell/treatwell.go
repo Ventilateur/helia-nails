@@ -25,6 +25,8 @@ type Treatwell struct {
 	venueID              string
 	employees            *twmodels.Employees
 	employeeWorkingHours *twmodels.EmployeesWorkingHours
+
+	employeeInfo map[string]twmodels.EmployeeWrapper
 }
 
 func New(httpClient *http.Client, venueID string) (*Treatwell, error) {
@@ -99,14 +101,31 @@ func (tw *Treatwell) Login(user, password string) error {
 func (tw *Treatwell) Preload(from, to time.Time) error {
 	var err error
 
+	tw.employeeInfo = map[string]twmodels.EmployeeWrapper{}
+
 	tw.employees, err = tw.getEmployeesInfo()
 	if err != nil {
 		return fmt.Errorf("failed to get employees info: %w", err)
 	}
 
+	for _, employee := range tw.employees.Employees {
+		tw.employeeInfo[employee.Name] = twmodels.EmployeeWrapper{
+			Info: employee,
+		}
+	}
+
 	tw.employeeWorkingHours, err = tw.getAllEmployeesWorkingHours(from, to)
 	if err != nil {
 		return fmt.Errorf("failed to get employees working hours: %w", err)
+	}
+
+	for _, employeeWorkingHours := range tw.employeeWorkingHours.EmployeesWorkingHours {
+		if info, ok := tw.employeeInfo[employeeWorkingHours.EmployeeName]; ok {
+			info.WorkingHours = employeeWorkingHours.WorkingHours
+			tw.employeeInfo[employeeWorkingHours.EmployeeName] = info
+		} else {
+			return fmt.Errorf("unknown employee %s", employeeWorkingHours.EmployeeName)
+		}
 	}
 
 	return nil

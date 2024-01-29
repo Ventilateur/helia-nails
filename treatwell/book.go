@@ -21,33 +21,55 @@ type BookAppointmentsRequest struct {
 	AnonymousNote   *string                `json:"anonymousNote"`
 }
 
-func (tw *Treatwell) BookAnonymously(appointment models.Appointment) error {
-	offer := func() *mapping.TreatwellOffer {
-		for _, twOffer := range mapping.TreatwellOffers {
-			for _, name := range twOffer.PossibleNames {
-				if strings.Contains(appointment.Offer, name) {
-					return &twOffer
+func (tw *Treatwell) Book(appointment models.Appointment) error {
+	twAppointment, err := buildTreatwellAppointment(appointment)
+	if err != nil {
+		return fmt.Errorf("failed to build Treatwell appointment")
+	}
+
+	calendar, err := tw.getCalendar(appointment.StartTime, appointment.EndTime)
+	if err != nil {
+		return fmt.Errorf("failed to get calendar: %w", err)
+	}
+
+	employeeInfo := tw.employeeInfo[appointment.Employee]
+
+	// Double check if employee can perform a service
+	canOffer := slices.Contains(employeeInfo.Info.EmployeeOffers, twAppointment.ServiceId)
+	if !canOffer {
+		return fmt.Errorf("employee %s cannot perform '%s'", appointment.Employee, appointment.Offer)
+	}
+
+	// Check for valid time slot and overlapping
+	for _, workingHour := range employeeInfo.WorkingHours {
+		if workingHour.Date == twAppointment.AppointmentDate && // this day
+			len(workingHour.TimeSlots) > 0 && // employee works
+			workingHour.TimeSlots[0].TimeFrom <= twAppointment.StartTime && // working hour starts before the appointment
+			workingHour.TimeSlots[0].TimeTo >= twAppointment.EndTime { // working hour ends after the appointment
+
+			// If employee works at the requested hour, check if there are already booked appointments there
+			for _, bookedAppointment := range calendar.Appointments {
+				if bookedAppointment.AppointmentDate == twAppointment.AppointmentDate && bookedAppointment.EmployeeId == employeeInfo.Info.Id {
+					if isOverlapping(bookedAppointment, *twAppointment) {
+						return fmt.Errorf(
+							"employee %s cannot perform at %s %s because of overlapping",
+							appointment.Employee,
+							twAppointment.AppointmentDate,
+							twAppointment.StartTime,
+						)
+					}
 				}
 			}
 		}
-		return nil
-	}()
-	if offer == nil {
-		return fmt.Errorf("no Treatwell offer found for [%s]", appointment.Offer)
 	}
 
-	twAppointment := &twmodels.Appointment{
-		AppointmentDate: appointment.StartTime.Format(time.DateOnly),
-		StartTime:       fmt.Sprintf("%02d:%02d", appointment.StartTime.Hour(), appointment.StartTime.Minute()),
-		EndTime:         fmt.Sprintf("%02d:%02d", appointment.EndTime.Hour(), appointment.EndTime.Minute()),
-		Platform:        "DESKTOP",
-		Notes:           fmt.Sprintf("${%s:%s}", string(appointment.Source), appointment.Id),
-		ServiceId:       offer.OfferID,
-		Skus: []twmodels.Sku{
-			{
-				SkuId: offer.SkuID,
-			},
-		},
+	return tw.book(twAppointment, fmt.Sprintf("[%s] %s", appointment.Source, appointment.ClientName))
+}
+
+func (tw *Treatwell) BookAnonymously(appointment models.Appointment) error {
+	twAppointment, err := buildTreatwellAppointment(appointment)
+	if err != nil {
+		return fmt.Errorf("failed to build Treatwell appointment")
 	}
 
 	calendar, err := tw.getCalendar(appointment.StartTime, appointment.EndTime)
@@ -116,6 +138,36 @@ func isOverlapping(a, b twmodels.Appointment) bool {
 	return a.StartAt().Compare(b.EndAt()) < 0 && a.EndAt().Compare(b.StartAt()) > 0
 }
 
+func buildTreatwellAppointment(appointment models.Appointment) (*twmodels.Appointment, error) {
+	offer := func() *mapping.TreatwellOffer {
+		for _, twOffer := range mapping.TreatwellOffers {
+			for _, name := range twOffer.PossibleNames {
+				if strings.Contains(appointment.Offer, name) {
+					return &twOffer
+				}
+			}
+		}
+		return nil
+	}()
+	if offer == nil {
+		return nil, fmt.Errorf("no Treatwell offer found for [%s]", appointment.Offer)
+	}
+
+	return &twmodels.Appointment{
+		AppointmentDate: appointment.StartTime.Format(time.DateOnly),
+		StartTime:       fmt.Sprintf("%02d:%02d", appointment.StartTime.Hour(), appointment.StartTime.Minute()),
+		EndTime:         fmt.Sprintf("%02d:%02d", appointment.EndTime.Hour(), appointment.EndTime.Minute()),
+		Platform:        "DESKTOP",
+		Notes:           fmt.Sprintf("${%s:%s}", string(appointment.Source), appointment.Id),
+		ServiceId:       offer.OfferID,
+		Skus: []twmodels.Sku{
+			{
+				SkuId: offer.SkuID,
+			},
+		},
+	}, nil
+}
+
 func (tw *Treatwell) bookAnonymously(appointment *twmodels.Appointment, clientName string, calendar *twmodels.Calendar) error {
 	employeeID, slotFound := findBookableEmployee(appointment, tw.employees, tw.employeeWorkingHours, calendar)
 	if !slotFound {
@@ -129,6 +181,10 @@ func (tw *Treatwell) bookAnonymously(appointment *twmodels.Appointment, clientNa
 
 	appointment.EmployeeId = employeeID
 
+	return tw.book(appointment, clientName)
+}
+
+func (tw *Treatwell) book(appointment *twmodels.Appointment, clientName string) error {
 	reqBody := &BookAppointmentsRequest{
 		Appointments:    []twmodels.Appointment{*appointment},
 		VenueCustomerID: nil,

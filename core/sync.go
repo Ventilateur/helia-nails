@@ -6,7 +6,8 @@ import (
 	"time"
 
 	"github.com/Ventilateur/helia-nails/core/models"
-	googlecalendar "github.com/Ventilateur/helia-nails/googlecalendar"
+	"github.com/Ventilateur/helia-nails/googlecalendar"
+	"github.com/Ventilateur/helia-nails/mapping"
 	"github.com/Ventilateur/helia-nails/treatwell"
 	"github.com/Ventilateur/helia-nails/utils"
 )
@@ -23,8 +24,10 @@ func New(tw *treatwell.Treatwell, ga *googlecalendar.GoogleCalendar) *Sync {
 	}
 }
 
-func (s *Sync) TreatwellToGoogleCalendar(calendarID string, from time.Time, to time.Time, exceptSource models.Source) error {
+func (s *Sync) TreatwellToGoogleCalendar(employee string, from time.Time, to time.Time, exceptSource models.Source) error {
 	slog.Info("Syncing Treatwell to Google Calendar...")
+
+	calendarID := mapping.EmployeeGoogleCalendarIDMap[employee]
 
 	twAppointments, err := s.tw.ListAppointments(from, to)
 	if err != nil {
@@ -37,6 +40,10 @@ func (s *Sync) TreatwellToGoogleCalendar(calendarID string, from time.Time, to t
 	}
 
 	for _, twAppointment := range utils.MapToOrderedSlice(twAppointments) {
+		if twAppointment.Employee != employee {
+			continue
+		}
+
 		// Ignore to avoid duplication
 		if twAppointment.Source == exceptSource {
 			slog.Info(fmt.Sprintf("Ignore: %s", twAppointment))
@@ -78,13 +85,10 @@ func (s *Sync) TreatwellToGoogleCalendar(calendarID string, from time.Time, to t
 	return nil
 }
 
-func (s *Sync) GoogleCalendarToTreatwell(calendarID string, from time.Time, to time.Time) error {
+func (s *Sync) GoogleCalendarToTreatwell(employee string, from time.Time, to time.Time) error {
 	slog.Info("Syncing Google Calendar to Treatwell...")
 
-	err := s.tw.Preload(from, to)
-	if err != nil {
-		return fmt.Errorf("failed to preload Treatwell info: %w", err)
-	}
+	calendarID := mapping.EmployeeGoogleCalendarIDMap[employee]
 
 	twAppointments, err := s.tw.ListAppointments(from, to)
 	if err != nil {
@@ -112,7 +116,8 @@ func (s *Sync) GoogleCalendarToTreatwell(calendarID string, from time.Time, to t
 			}
 		} else {
 			// if the GG event is not on TW and needs to be added
-			err = s.tw.BookAnonymously(event)
+			event.Employee = employee
+			err = s.tw.Book(event)
 			if err != nil {
 				return fmt.Errorf("failed to book Treatwell from event %s: %w", event.Id, err)
 			}
@@ -126,4 +131,67 @@ func (s *Sync) GoogleCalendarToTreatwell(calendarID string, from time.Time, to t
 func needUpdate(a1, a2 models.Appointment) bool {
 	return a1.StartTime.Round(time.Minute) != a2.StartTime.Round(time.Minute) ||
 		a1.EndTime.Round(time.Minute) != a2.EndTime.Round(time.Minute)
+}
+
+func (s *Sync) SyncWorkingHours(employee string, from time.Time, to time.Time) error {
+	date := from
+
+	for date.Before(to) {
+		timeSlots, err := s.tw.GetWorkingHours(employee, date)
+		if err != nil {
+			return fmt.Errorf("failed to get working hours of %s on %s: %w", employee, date.Format(time.DateOnly), err)
+		}
+
+		calendarID := mapping.EmployeeGoogleCalendarIDMap[employee]
+
+		if len(timeSlots) == 0 {
+			// The employee doesn't work that day -> Block from 10:15 to 19:15
+			err = s.gc.Block(
+				calendarID,
+				time.Date(date.Year(), date.Month(), date.Day(), 10, 15, 0, 0, date.Location()),
+				time.Date(date.Year(), date.Month(), date.Day(), 19, 15, 0, 0, date.Location()),
+			)
+			if err != nil {
+				return fmt.Errorf("failed to block date %s: %w", date.Format(time.DateOnly), err)
+			}
+		} else {
+			slot := timeSlots[0]
+			slotFrom, slotTo, err := utils.ParseTimes(
+				fmt.Sprintf("%sT%s:00+01:00", date.Format(time.DateOnly), slot.TimeFrom),
+				fmt.Sprintf("%sT%s:00+01:00", date.Format(time.DateOnly), slot.TimeTo),
+			)
+			if err != nil {
+				return fmt.Errorf("failed to parse time slots %v: %w", slot, err)
+			}
+
+			if slot.TimeFrom > "10:15" {
+				// Block from 10:15 to TimeFrom
+				err = s.gc.Block(
+					calendarID,
+					time.Date(date.Year(), date.Month(), date.Day(), 10, 15, 0, 0, date.Location()),
+					slotFrom,
+				)
+				if err != nil {
+					return fmt.Errorf("failed to block date %s from 10:15 to %s: %w",
+						date.Format(time.DateOnly), slot.TimeFrom, err)
+				}
+			}
+			if slot.TimeTo < "19:15" {
+				// Block from TimeTo to 19:15
+				err = s.gc.Block(
+					calendarID,
+					slotTo,
+					time.Date(date.Year(), date.Month(), date.Day(), 19, 15, 0, 0, date.Location()),
+				)
+				if err != nil {
+					return fmt.Errorf("failed to block date %s from %s to 19:15: %w",
+						date.Format(time.DateOnly), slot.TimeTo, err)
+				}
+			}
+		}
+
+		date = date.Add(24 * time.Hour)
+	}
+
+	return nil
 }

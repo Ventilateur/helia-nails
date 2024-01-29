@@ -16,7 +16,7 @@ var (
 	customIDRegex = regexp.MustCompile(`\${(\w+):([\dA-Za-z-_]+)}`)
 )
 
-func ParseFromToTimes(t1Str, t2Str string) (time.Time, time.Time, error) {
+func ParseTimes(t1Str, t2Str string) (time.Time, time.Time, error) {
 	t1, err := time.Parse(defaultTimeFormat, t1Str)
 	if err != nil {
 		t1, err = time.Parse(time.RFC3339, t1Str)

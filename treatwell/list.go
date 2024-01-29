@@ -19,7 +19,7 @@ func (tw *Treatwell) ListAppointments(from, to time.Time) (map[string]models.App
 
 	appointments := map[string]models.Appointment{}
 	for _, appointment := range twCalendar.Appointments {
-		start, end, err := utils.ParseFromToTimes(
+		start, end, err := utils.ParseTimes(
 			fmt.Sprintf("%sT%s:00+01:00", appointment.AppointmentDate, appointment.StartTime),
 			fmt.Sprintf("%sT%s:00+01:00", appointment.AppointmentDate, appointment.EndTime),
 		)
