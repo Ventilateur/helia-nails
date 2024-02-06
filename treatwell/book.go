@@ -158,6 +158,7 @@ func buildTreatwellAppointment(appointment models.Appointment) (*twmodels.Appoin
 		StartTime:       fmt.Sprintf("%02d:%02d", appointment.StartTime.Hour(), appointment.StartTime.Minute()),
 		EndTime:         fmt.Sprintf("%02d:%02d", appointment.EndTime.Hour(), appointment.EndTime.Minute()),
 		Platform:        "DESKTOP",
+		EmployeeId:      mapping.EmployeeTreatwellIDMap[appointment.Employee],
 		Notes:           fmt.Sprintf("${%s:%s}", string(appointment.Source), appointment.Id),
 		ServiceId:       offer.OfferID,
 		Skus: []twmodels.Sku{

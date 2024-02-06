@@ -20,6 +20,18 @@ var (
 		EmployeeNameMinette: "bf675e61950db2cc249c3d57b687654988273604cc4f400da558889b477825d0@group.calendar.google.com",
 		EmployeeNameChloe:   "b72bdf75141c2d7489e6da0ceeb7eed069c36ace2ff9374235b9440b817e7e8f@group.calendar.google.com",
 	}
+	EmployeeTreatwellIDMap = map[string]int{
+		EmployeeNameJade:    461945,
+		EmployeeNameChloe:   461946,
+		EmployeeNameMinette: 461944,
+	}
+	CalendarIDToEmployeeMap = func() map[string]string {
+		m := map[string]string{}
+		for employee, calendarID := range EmployeeGoogleCalendarIDMap {
+			m[calendarID] = employee
+		}
+		return m
+	}()
 )
 
 type TreatwellOffer struct {

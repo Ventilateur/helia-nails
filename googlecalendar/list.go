@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Ventilateur/helia-nails/core/models"
+	"github.com/Ventilateur/helia-nails/mapping"
 	"github.com/Ventilateur/helia-nails/utils"
 	"google.golang.org/api/calendar/v3"
 )
@@ -27,6 +28,8 @@ func (c *GoogleCalendar) List(calendarID string, from time.Time, to time.Time) (
 		return nil, fmt.Errorf("failed to list events for %s: %w", calendarID, err)
 	}
 
+	employee := mapping.CalendarIDToEmployeeMap[calendarID]
+
 	appointments := map[string]models.Appointment{}
 	for _, item := range events.Items {
 		if item.Summary == BlockEventName {
@@ -37,6 +40,7 @@ func (c *GoogleCalendar) List(calendarID string, from time.Time, to time.Time) (
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse Google event: %w", err)
 		}
+		appointment.Employee = employee
 
 		appointments[appointment.Id] = *appointment
 	}

@@ -83,7 +83,7 @@ func syncAll(ctx context.Context) error {
 	sync := core.New(tw, ga)
 
 	from := utils.BoD(time.Now().Add(24 * time.Hour))
-	to := utils.EoD(from.Add(7 * 24 * time.Hour))
+	to := utils.EoD(from.Add(0 * 24 * time.Hour))
 
 	err = tw.Preload(from, to)
 	if err != nil {
@@ -103,10 +103,10 @@ func syncAll(ctx context.Context) error {
 			return fmt.Errorf("failed to sync TW to Google: %w", err)
 		}
 
-		err = sync.GoogleCalendarToTreatwell(employee, from, to)
-		if err != nil {
-			return fmt.Errorf("failed to sync Google to TW: %w", err)
-		}
+		//err = sync.GoogleCalendarToTreatwell(employee, from, to)
+		//if err != nil {
+		//	return fmt.Errorf("failed to sync Google to TW: %w", err)
+		//}
 	}
 
 	return nil

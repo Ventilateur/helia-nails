@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -211,6 +212,12 @@ func doRequestWithoutResponse(tw *Treatwell, method, u string, body io.Reader, p
 	if err != nil {
 		return utils.DoRequestErr(u, err)
 	}
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
 	defer resp.Body.Close()
 
 	ok := func() bool {
@@ -223,6 +230,7 @@ func doRequestWithoutResponse(tw *Treatwell, method, u string, body io.Reader, p
 	}()
 
 	if !ok {
+		slog.Error(string(respBody))
 		return utils.UnexpectedErrorCode(resp.StatusCode)
 	}
 

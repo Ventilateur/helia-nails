@@ -29,9 +29,16 @@ func (s *Sync) TreatwellToGoogleCalendar(employee string, from time.Time, to tim
 
 	calendarID := mapping.EmployeeGoogleCalendarIDMap[employee]
 
-	twAppointments, err := s.tw.ListAppointments(from, to)
+	allTWAppointments, err := s.tw.ListAppointments(employee, from, to)
 	if err != nil {
 		return err
+	}
+
+	twAppointments := map[string]models.Appointment{}
+	for id, appointment := range allTWAppointments {
+		if appointment.Employee == employee {
+			twAppointments[id] = appointment
+		}
 	}
 
 	ggEvents, err := s.gc.List(calendarID, from, to)
@@ -40,10 +47,6 @@ func (s *Sync) TreatwellToGoogleCalendar(employee string, from time.Time, to tim
 	}
 
 	for _, twAppointment := range utils.MapToOrderedSlice(twAppointments) {
-		if twAppointment.Employee != employee {
-			continue
-		}
-
 		// Ignore to avoid duplication
 		if twAppointment.Source == exceptSource {
 			slog.Info(fmt.Sprintf("Ignore: %s", twAppointment))
@@ -90,9 +93,16 @@ func (s *Sync) GoogleCalendarToTreatwell(employee string, from time.Time, to tim
 
 	calendarID := mapping.EmployeeGoogleCalendarIDMap[employee]
 
-	twAppointments, err := s.tw.ListAppointments(from, to)
+	allTWAppointments, err := s.tw.ListAppointments(employee, from, to)
 	if err != nil {
 		return err
+	}
+
+	twAppointments := map[string]models.Appointment{}
+	for id, appointment := range allTWAppointments {
+		if appointment.Employee == employee {
+			twAppointments[id] = appointment
+		}
 	}
 
 	ggEvents, err := s.gc.List(calendarID, from, to)
@@ -109,7 +119,14 @@ func (s *Sync) GoogleCalendarToTreatwell(employee string, from time.Time, to tim
 		if appointment, ok := twAppointments[event.Id]; ok {
 			if needUpdate(appointment, event) {
 				// if the GG event is already on TW and needs to be updated
-				// TODO
+				appointment.Employee = event.Employee
+				appointment.StartTime = event.StartTime
+				appointment.EndTime = event.EndTime
+
+				err = s.tw.Update(appointment)
+				if err != nil {
+					return fmt.Errorf("failed to update Treatwell event %s: %w", appointment, err)
+				}
 				slog.Info(fmt.Sprintf("Update: %s to %s", appointment, event))
 			} else {
 				slog.Info(fmt.Sprintf("Keep: %s", appointment))
@@ -140,8 +157,11 @@ func (s *Sync) GoogleCalendarToTreatwell(employee string, from time.Time, to tim
 }
 
 func needUpdate(a1, a2 models.Appointment) bool {
-	return a1.StartTime.Round(time.Minute) != a2.StartTime.Round(time.Minute) ||
+	timeChanges := a1.StartTime.Round(time.Minute) != a2.StartTime.Round(time.Minute) ||
 		a1.EndTime.Round(time.Minute) != a2.EndTime.Round(time.Minute)
+	employeeChanges := a1.Employee != a2.Employee
+
+	return timeChanges || employeeChanges
 }
 
 func (s *Sync) SyncWorkingHours(employee string, from time.Time, to time.Time) error {
