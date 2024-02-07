@@ -59,8 +59,8 @@ var TreatwellOffers = []TreatwellOffer{
 		PossibleNames: []string{
 			"Beauté des mains et pieds avec pose de vernis semi-permanent",
 		},
-		OfferID: 4470648,
-		SkuID:   8403747,
+		OfferID: 4470656,
+		SkuID:   8403758,
 	},
 	{
 		PossibleNames: []string{

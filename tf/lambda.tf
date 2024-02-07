@@ -122,7 +122,7 @@ resource "aws_scheduler_schedule" "example" {
     mode = "OFF"
   }
 
-  schedule_expression = "rate(3 minutes)"
+  schedule_expression = "rate(2 minutes)"
 
   target {
     arn      = aws_lambda_function.calendar_sync.arn

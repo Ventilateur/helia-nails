@@ -18,7 +18,7 @@ func HandleRequest(ctx context.Context, event *Event) (*string, error) {
 
 	switch event.Name {
 	case "sync":
-		if err := syncAll(ctx); err != nil {
+		if err := syncAll(); err != nil {
 			return nil, fmt.Errorf("failed to sync: %w", err)
 		}
 	default:

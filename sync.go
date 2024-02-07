@@ -9,15 +9,13 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/Ventilateur/helia-nails/aws"
 	"github.com/Ventilateur/helia-nails/core"
 	"github.com/Ventilateur/helia-nails/core/models"
 	"github.com/Ventilateur/helia-nails/googlecalendar"
 	"github.com/Ventilateur/helia-nails/mapping"
 	"github.com/Ventilateur/helia-nails/treatwell"
 	"github.com/Ventilateur/helia-nails/utils"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
 
 const (
@@ -27,10 +25,10 @@ const (
 	twUserID  = "/treatwell/tw_user_id"
 )
 
-func syncAll(ctx context.Context) error {
-	params, err := getParams(ctx, googleKey, twATKT, twITKT, twUserID)
+func syncAll() error {
+	params, err := aws.GetParam(googleKey, twATKT, twITKT, twUserID)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get parameter: %w", err)
 	}
 
 	cookieJar, err := cookiejar.New(nil)
@@ -83,7 +81,7 @@ func syncAll(ctx context.Context) error {
 	sync := core.New(tw, ga)
 
 	from := utils.BoD(time.Now().Add(24 * time.Hour))
-	to := utils.EoD(from.Add(0 * 24 * time.Hour))
+	to := utils.EoD(from.Add(7 * 24 * time.Hour))
 
 	err = tw.Preload(from, to)
 	if err != nil {
@@ -103,35 +101,11 @@ func syncAll(ctx context.Context) error {
 			return fmt.Errorf("failed to sync TW to Google: %w", err)
 		}
 
-		//err = sync.GoogleCalendarToTreatwell(employee, from, to)
-		//if err != nil {
-		//	return fmt.Errorf("failed to sync Google to TW: %w", err)
-		//}
+		err = sync.GoogleCalendarToTreatwell(employee, from, to)
+		if err != nil {
+			return fmt.Errorf("failed to sync Google to TW: %w", err)
+		}
 	}
 
 	return nil
-}
-
-func getParams(ctx context.Context, paramNames ...string) (map[string]string, error) {
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion("eu-west-3"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to load aws context: %w", err)
-	}
-
-	svc := ssm.NewFromConfig(cfg)
-
-	params := map[string]string{}
-
-	for _, paramName := range paramNames {
-		o, err := svc.GetParameter(ctx, &ssm.GetParameterInput{
-			Name:           aws.String(paramName),
-			WithDecryption: aws.Bool(true),
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to get param %s: %w", paramName, err)
-		}
-		params[paramName] = *o.Parameter.Value
-	}
-
-	return params, nil
 }
