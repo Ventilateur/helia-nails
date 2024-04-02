@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Ventilateur/helia-nails/core/models"
+	"github.com/Ventilateur/helia-nails/utils"
 	"google.golang.org/api/calendar/v3"
 )
 
@@ -12,11 +13,11 @@ func (c *GoogleCalendar) Update(calendarID string, eventID string, appointment m
 	_, err := c.svc.Events.Patch(calendarID, eventID, &calendar.Event{
 		Start: &calendar.EventDateTime{
 			DateTime: appointment.StartTime.Format(time.RFC3339),
-			TimeZone: defaultIANATz,
+			TimeZone: utils.DefaultIanaTz,
 		},
 		End: &calendar.EventDateTime{
 			DateTime: appointment.EndTime.Format(time.RFC3339),
-			TimeZone: defaultIANATz,
+			TimeZone: utils.DefaultIanaTz,
 		},
 	}).Do()
 	if err != nil {

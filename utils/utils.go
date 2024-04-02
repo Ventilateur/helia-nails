@@ -10,11 +10,21 @@ import (
 
 const (
 	defaultTimeFormat = "2006-01-02T15:04:05"
+	DefaultIanaTz     = "Europe/Paris"
 )
 
 var (
-	customIDRegex = regexp.MustCompile(`\${(\w+):([\dA-Za-z-_]+)}`)
+	customIDRegex   = regexp.MustCompile(`\${(\w+):([\dA-Za-z-_]+)}`)
+	DefaultLocation *time.Location
 )
+
+func init() {
+	var err error
+	DefaultLocation, err = time.LoadLocation(DefaultIanaTz)
+	if err != nil {
+		panic(err)
+	}
+}
 
 func ParseTimes(t1Str, t2Str string) (time.Time, time.Time, error) {
 	t1, err := time.Parse(defaultTimeFormat, t1Str)

@@ -179,8 +179,8 @@ func (s *Sync) SyncWorkingHours(employee string, from time.Time, to time.Time) e
 			// The employee doesn't work that day -> Block from 10:15 to 19:15
 			err = s.gc.Block(
 				calendarID,
-				time.Date(date.Year(), date.Month(), date.Day(), 10, 15, 0, 0, date.Location()),
-				time.Date(date.Year(), date.Month(), date.Day(), 19, 15, 0, 0, date.Location()),
+				time.Date(date.Year(), date.Month(), date.Day(), 10, 15, 0, 0, utils.DefaultLocation),
+				time.Date(date.Year(), date.Month(), date.Day(), 19, 15, 0, 0, utils.DefaultLocation),
 			)
 			if err != nil {
 				return fmt.Errorf("failed to block date %s: %w", date.Format(time.DateOnly), err)
@@ -199,7 +199,7 @@ func (s *Sync) SyncWorkingHours(employee string, from time.Time, to time.Time) e
 				// Block from 10:15 to TimeFrom
 				err = s.gc.Block(
 					calendarID,
-					time.Date(date.Year(), date.Month(), date.Day(), 10, 15, 0, 0, date.Location()),
+					time.Date(date.Year(), date.Month(), date.Day(), 10, 15, 0, 0, utils.DefaultLocation),
 					slotFrom,
 				)
 				if err != nil {
@@ -212,7 +212,7 @@ func (s *Sync) SyncWorkingHours(employee string, from time.Time, to time.Time) e
 				err = s.gc.Block(
 					calendarID,
 					slotTo,
-					time.Date(date.Year(), date.Month(), date.Day(), 19, 15, 0, 0, date.Location()),
+					time.Date(date.Year(), date.Month(), date.Day(), 19, 15, 0, 0, utils.DefaultLocation),
 				)
 				if err != nil {
 					return fmt.Errorf("failed to block date %s from %s to 19:15: %w",
