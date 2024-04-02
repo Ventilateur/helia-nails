@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 golang:1.21-alpine as build
+FROM --platform=linux/amd64 golang:1.22-alpine as build
 
 ARG AWS_REGION
 ARG AWS_ACCESS_KEY_ID

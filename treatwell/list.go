@@ -24,8 +24,8 @@ func (tw *Treatwell) ListAppointments(employee string, from, to time.Time) (map[
 		}
 
 		start, end, err := utils.ParseTimes(
-			fmt.Sprintf("%sT%s:00+00:00", appointment.AppointmentDate, appointment.StartTime),
-			fmt.Sprintf("%sT%s:00+00:00", appointment.AppointmentDate, appointment.EndTime),
+			fmt.Sprintf("%sT%s:00", appointment.AppointmentDate, appointment.StartTime),
+			fmt.Sprintf("%sT%s:00", appointment.AppointmentDate, appointment.EndTime),
 		)
 		if err != nil {
 			return nil, err

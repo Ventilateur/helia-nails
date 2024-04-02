@@ -21,11 +21,9 @@ func (c *GoogleCalendar) Book(calendarID string, appointment models.Appointment)
 		Description: fmt.Sprintf("${%s:%s}\n%s", string(appointment.Source), appointment.Id, appointment.Notes),
 		Start: &calendar.EventDateTime{
 			DateTime: appointment.StartTime.Format(time.RFC3339),
-			TimeZone: utils.DefaultIanaTz,
 		},
 		End: &calendar.EventDateTime{
 			DateTime: appointment.EndTime.Format(time.RFC3339),
-			TimeZone: utils.DefaultIanaTz,
 		},
 	}
 
@@ -66,11 +64,9 @@ func (c *GoogleCalendar) Block(calendarID string, from, to time.Time) error {
 		Location: string(models.PlatformTreatwell),
 		Start: &calendar.EventDateTime{
 			DateTime: from.Format(time.RFC3339),
-			TimeZone: utils.DefaultIanaTz,
 		},
 		End: &calendar.EventDateTime{
 			DateTime: to.Format(time.RFC3339),
-			TimeZone: utils.DefaultIanaTz,
 		},
 	}
 

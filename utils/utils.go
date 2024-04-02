@@ -10,7 +10,7 @@ import (
 
 const (
 	defaultTimeFormat = "2006-01-02T15:04:05"
-	DefaultIanaTz     = "Europe/Paris"
+	defaultIanaTz     = "Europe/Paris"
 )
 
 var (
@@ -20,24 +20,24 @@ var (
 
 func init() {
 	var err error
-	DefaultLocation, err = time.LoadLocation(DefaultIanaTz)
+	DefaultLocation, err = time.LoadLocation(defaultIanaTz)
 	if err != nil {
 		panic(err)
 	}
 }
 
 func ParseTimes(t1Str, t2Str string) (time.Time, time.Time, error) {
-	t1, err := time.Parse(defaultTimeFormat, t1Str)
+	t1, err := time.ParseInLocation(defaultTimeFormat, t1Str, DefaultLocation)
 	if err != nil {
-		t1, err = time.Parse(time.RFC3339, t1Str)
+		t1, err = time.ParseInLocation(time.RFC3339, t1Str, DefaultLocation)
 		if err != nil {
 			return time.Time{}, time.Time{}, err
 		}
 	}
 
-	t2, err := time.Parse(defaultTimeFormat, t2Str)
+	t2, err := time.ParseInLocation(defaultTimeFormat, t2Str, DefaultLocation)
 	if err != nil {
-		t2, err = time.Parse(time.RFC3339, t2Str)
+		t2, err = time.ParseInLocation(time.RFC3339, t2Str, DefaultLocation)
 		if err != nil {
 			return time.Time{}, time.Time{}, err
 		}

@@ -188,8 +188,8 @@ func (s *Sync) SyncWorkingHours(employee string, from time.Time, to time.Time) e
 		} else {
 			slot := timeSlots[0]
 			slotFrom, slotTo, err := utils.ParseTimes(
-				fmt.Sprintf("%sT%s:00+01:00", date.Format(time.DateOnly), slot.TimeFrom),
-				fmt.Sprintf("%sT%s:00+01:00", date.Format(time.DateOnly), slot.TimeTo),
+				fmt.Sprintf("%sT%s:00+00:00", date.Format(time.DateOnly), slot.TimeFrom),
+				fmt.Sprintf("%sT%s:00+00:00", date.Format(time.DateOnly), slot.TimeTo),
 			)
 			if err != nil {
 				return fmt.Errorf("failed to parse time slots %v: %w", slot, err)
