@@ -65,7 +65,7 @@ func (p *Planity) Connect(ctx context.Context) error {
 		return fmt.Errorf("failed to login: %w", err)
 	}
 
-	p.wsConn, _, err = websocket.Dial(ctx, wsURL, nil)
+	p.wsConn, _, err = websocket.Dial(ctx, p.config.Planity.WebsocketUrl, nil)
 	if err != nil {
 		return fmt.Errorf("failed to connect to websocket: %w", err)
 	}

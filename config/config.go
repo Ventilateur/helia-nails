@@ -25,9 +25,10 @@ type TreatwellConfig struct {
 }
 
 type PlanityConfig struct {
-	ApiKey   string `yaml:"apiKey"`
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
+	ApiKey       string `yaml:"apiKey"`
+	Username     string `yaml:"username"`
+	Password     string `yaml:"password"`
+	WebsocketUrl string `yaml:"websocketUrl"`
 }
 
 type ClasspassConfig struct {

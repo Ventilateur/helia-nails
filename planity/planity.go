@@ -18,7 +18,6 @@ import (
 const (
 	loginURL = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
 	tokenURL = "https://securetoken.googleapis.com/v1/token"
-	wsURL    = "wss://s-euw1c-nss-2204.europe-west1.firebasedatabase.app/.ws?v=5&p=1:1025269755978:android:26e77f72a3cbd599&ns=planity-production-fr-11"
 )
 
 type Planity struct {
