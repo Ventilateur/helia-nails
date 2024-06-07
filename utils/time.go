@@ -2,13 +2,13 @@ package utils
 
 import (
 	"regexp"
-	"slices"
 	"time"
 
 	"github.com/Ventilateur/helia-nails/core/models"
 )
 
 const (
+	PlanityTimeFormat = "2006-01-02 15:04"
 	defaultTimeFormat = "2006-01-02T15:04:05"
 	defaultIanaTz     = "Europe/Paris"
 )
@@ -64,18 +64,4 @@ func BoD(t time.Time) time.Time {
 func EoD(t time.Time) time.Time {
 	year, month, day := t.Date()
 	return time.Date(year, month, day, 23, 59, 59, 0, t.Location())
-}
-
-func MapToOrderedSlice(m map[string]models.Appointment) []models.Appointment {
-	var ret []models.Appointment
-
-	for _, a := range m {
-		ret = append(ret, a)
-	}
-
-	slices.SortFunc(ret, func(a1, a2 models.Appointment) int {
-		return a1.StartTime.Compare(a2.StartTime)
-	})
-
-	return ret
 }

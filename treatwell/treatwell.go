@@ -6,11 +6,14 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/Ventilateur/helia-nails/config"
+	"github.com/Ventilateur/helia-nails/core/models"
 	twmodels "github.com/Ventilateur/helia-nails/treatwell/models"
 	"github.com/Ventilateur/helia-nails/utils"
 )
@@ -22,19 +25,58 @@ const (
 
 type Treatwell struct {
 	httpClient *http.Client
+	config     *config.Config
 
 	venueID              string
 	employees            *twmodels.Employees
 	employeeWorkingHours *twmodels.EmployeesWorkingHours
 
-	employeeInfo map[string]twmodels.EmployeeWrapper
+	employeeInfo  map[string]twmodels.EmployeeWrapper
+	employeeInfo2 map[int]twmodels.EmployeeWrapper
 }
 
-func New(httpClient *http.Client, venueID string) (*Treatwell, error) {
+func New(httpClient *http.Client, config *config.Config) (*Treatwell, error) {
+	cookieJar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cookie jar: %w", err)
+	}
+
+	u, err := url.Parse("https://treatwell.fr")
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse url: %w", err)
+	}
+
+	cookieJar.SetCookies(u, []*http.Cookie{
+		{
+			Name:   "ATKT",
+			Value:  config.Treatwell.ATKT,
+			Path:   "/",
+			Domain: "treatwell.fr",
+		},
+		{
+			Name:   "ITKT",
+			Value:  config.Treatwell.ITKT,
+			Path:   "/",
+			Domain: "treatwell.fr",
+		},
+		{
+			Name:   "tw_user_id",
+			Value:  config.Treatwell.UserId,
+			Path:   "/",
+			Domain: "connect.treatwell.fr",
+		},
+	})
+	httpClient.Jar = cookieJar
+
 	return &Treatwell{
 		httpClient: httpClient,
-		venueID:    venueID,
+		config:     config,
+		venueID:    config.Treatwell.VenueId,
 	}, nil
+}
+
+func (tw *Treatwell) Name() models.Source {
+	return models.SourceTreatwell
 }
 
 func (tw *Treatwell) bootstrapCookie() error {
@@ -66,6 +108,7 @@ func (tw *Treatwell) bootstrapCookie() error {
 	return nil
 }
 
+// Login hasn't been used so far because Treatwell is dumb, login once and use the tokens forever.
 func (tw *Treatwell) Login(user, password string) error {
 	err := tw.bootstrapCookie()
 	if err != nil {
@@ -103,6 +146,7 @@ func (tw *Treatwell) Preload(from, to time.Time) error {
 	var err error
 
 	tw.employeeInfo = map[string]twmodels.EmployeeWrapper{}
+	tw.employeeInfo2 = map[int]twmodels.EmployeeWrapper{}
 
 	tw.employees, err = tw.getEmployeesInfo()
 	if err != nil {
@@ -111,6 +155,9 @@ func (tw *Treatwell) Preload(from, to time.Time) error {
 
 	for _, employee := range tw.employees.Employees {
 		tw.employeeInfo[employee.Name] = twmodels.EmployeeWrapper{
+			Info: employee,
+		}
+		tw.employeeInfo2[employee.Id] = twmodels.EmployeeWrapper{
 			Info: employee,
 		}
 	}
@@ -124,6 +171,13 @@ func (tw *Treatwell) Preload(from, to time.Time) error {
 		if info, ok := tw.employeeInfo[employeeWorkingHours.EmployeeName]; ok {
 			info.WorkingHours = employeeWorkingHours.WorkingHours
 			tw.employeeInfo[employeeWorkingHours.EmployeeName] = info
+		} else {
+			return fmt.Errorf("unknown employee %s", employeeWorkingHours.EmployeeName)
+		}
+
+		if info, ok := tw.employeeInfo2[employeeWorkingHours.EmployeeID]; ok {
+			info.WorkingHours = employeeWorkingHours.WorkingHours
+			tw.employeeInfo2[employeeWorkingHours.EmployeeID] = info
 		} else {
 			return fmt.Errorf("unknown employee %s", employeeWorkingHours.EmployeeName)
 		}

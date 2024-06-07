@@ -3,107 +3,44 @@ package main
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
-	"net/http/cookiejar"
-	"net/url"
 	"time"
 
-	"github.com/Ventilateur/helia-nails/aws"
+	"github.com/Ventilateur/helia-nails/classpass"
+	"github.com/Ventilateur/helia-nails/config"
 	"github.com/Ventilateur/helia-nails/core"
-	"github.com/Ventilateur/helia-nails/core/models"
-	"github.com/Ventilateur/helia-nails/googlecalendar"
-	"github.com/Ventilateur/helia-nails/mapping"
+	"github.com/Ventilateur/helia-nails/planity"
 	"github.com/Ventilateur/helia-nails/treatwell"
-	"github.com/Ventilateur/helia-nails/utils"
 )
 
-const (
-	googleKey = "/google/key"
-	twATKT    = "/treatwell/ATKT"
-	twITKT    = "/treatwell/ITKT"
-	twUserID  = "/treatwell/tw_user_id"
-)
-
-func syncAll() error {
-	params, err := aws.GetParam(googleKey, twATKT, twITKT, twUserID)
+func syncAll(ctx context.Context, cfg *config.Config, from time.Time, to time.Time) error {
+	tw, err := treatwell.New(&http.Client{Timeout: 1 * time.Minute}, cfg)
 	if err != nil {
-		return fmt.Errorf("failed to get parameter: %w", err)
+		return err
 	}
 
-	cookieJar, err := cookiejar.New(nil)
+	cp, err := classpass.New(ctx, cfg)
 	if err != nil {
-		return fmt.Errorf("failed to create cookie jar: %w", err)
+		return err
 	}
 
-	u, err := url.Parse("https://treatwell.fr")
+	pl, err := planity.New(ctx, &http.Client{Timeout: 15 * time.Second}, cfg)
 	if err != nil {
-		return fmt.Errorf("failed to parse url: %w", err)
+		return err
 	}
 
-	cookieJar.SetCookies(u, []*http.Cookie{
-		{
-			Name:   "ATKT",
-			Value:  params[twATKT],
-			Path:   "/",
-			Domain: "treatwell.fr",
-		},
-		{
-			Name:   "ITKT",
-			Value:  params[twITKT],
-			Path:   "/",
-			Domain: "treatwell.fr",
-		},
-		{
-			Name:   "tw_user_id",
-			Value:  params[twUserID],
-			Path:   "/",
-			Domain: "connect.treatwell.fr",
-		},
-	})
-
-	client := &http.Client{
-		Timeout: 1 * time.Minute,
-		Jar:     cookieJar,
-	}
-
-	tw, err := treatwell.New(client, "428563")
-	if err != nil {
-		panic(err)
-	}
-
-	ga, err := googlecalendar.New(
-		context.Background(),
-		"calendar-sync@helia-nails.iam.gserviceaccount.com",
-		[]byte(params[googleKey]),
-	)
-
-	sync := core.New(tw, ga)
-
-	from := utils.BoD(time.Now().Add(24 * time.Hour))
-	to := utils.EoD(from.Add(7 * 24 * time.Hour))
-
-	err = tw.Preload(from, to)
-	if err != nil {
+	if err := tw.Preload(from, to); err != nil {
 		return fmt.Errorf("failed to preload TW data: %w", err)
 	}
 
-	for _, employee := range mapping.AllEmployees {
-		slog.Info(fmt.Sprintf("Start sync for %s", employee))
-
-		err = sync.SyncWorkingHours(employee, from, to)
-		if err != nil {
-			return fmt.Errorf("failed to sync working hours to Google: %w", err)
-		}
-
-		err = sync.TreatwellToGoogleCalendar(employee, from, to, models.SourceClassPass)
-		if err != nil {
-			return fmt.Errorf("failed to sync TW to Google: %w", err)
-		}
-
-		err = sync.GoogleCalendarToTreatwell(employee, from, to)
-		if err != nil {
-			return fmt.Errorf("failed to sync Google to TW: %w", err)
+	for _, employee := range cfg.Employees {
+		for _, platform := range []core.Platform{cp, pl} {
+			if err := core.SyncWorkingHours(cfg, tw, employee, from, to, platform); err != nil {
+				return fmt.Errorf("failed to sync working hours to %s: %w", platform.Name(), err)
+			}
+			if err := core.Sync(tw, platform, employee, from, to); err != nil {
+				return fmt.Errorf("failed to sync %s <-> %s: %w", tw.Name(), platform.Name(), err)
+			}
 		}
 	}
 

@@ -6,6 +6,8 @@ require (
 	github.com/aws/aws-lambda-go v1.45.0
 	golang.org/x/oauth2 v0.15.0
 	google.golang.org/api v0.154.0
+	gopkg.in/yaml.v3 v3.0.1
+	nhooyr.io/websocket v1.8.11
 )
 
 require (

@@ -1,3 +1,5 @@
 tf/.terraform
 tf/.terraform.lock.hcl
 tf/terraform.tfvars
+
+_local/

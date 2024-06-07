@@ -7,12 +7,12 @@ import (
 	"github.com/Ventilateur/helia-nails/core/models"
 )
 
-func (tw *Treatwell) GetWorkingHours(employee string, date time.Time) ([]models.TimeSlot, error) {
+func (tw *Treatwell) GetWorkingHours(employee models.Employee, date time.Time) ([]models.TimeSlot, error) {
 	var timeSlots []models.TimeSlot
 
-	employeeInfo, ok := tw.employeeInfo[employee]
+	employeeInfo, ok := tw.employeeInfo2[employee.Treatwell.Id]
 	if !ok {
-		return nil, fmt.Errorf("unknown employee %s", employee)
+		return nil, fmt.Errorf("unknown employee %s", employee.Name)
 	}
 
 	for _, workingHour := range employeeInfo.WorkingHours {
