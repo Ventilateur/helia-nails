@@ -1,6 +1,7 @@
-package googlecalendar
+package classpass
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"time"
@@ -11,14 +12,15 @@ import (
 )
 
 const (
+	BookEventName  = "__SYNC__"
 	BlockEventName = "__BLOCKED_BY_TREATWELL__"
 )
 
-func (c *GoogleCalendar) Book(calendarID string, appointment models.Appointment) error {
+func (c *Classpass) Book(_ context.Context, appointment models.Appointment) error {
 	event := &calendar.Event{
-		Summary:     appointment.Offer,
+		Summary:     BookEventName,
 		Location:    string(appointment.Source),
-		Description: fmt.Sprintf("${%s:%s}\n%s", string(appointment.Source), appointment.Id, appointment.Notes),
+		Description: appointment.CustomNotes(),
 		Start: &calendar.EventDateTime{
 			DateTime: appointment.StartTime.Format(time.RFC3339),
 		},
@@ -27,7 +29,7 @@ func (c *GoogleCalendar) Book(calendarID string, appointment models.Appointment)
 		},
 	}
 
-	_, err := c.svc.Events.Insert(calendarID, event).Do()
+	_, err := c.svc.Events.Insert(appointment.Employee.Classpass.GoogleCalendarId, event).Do()
 	if err != nil {
 		return fmt.Errorf("failed to book event %s: %w", appointment, err)
 	}
@@ -35,8 +37,8 @@ func (c *GoogleCalendar) Book(calendarID string, appointment models.Appointment)
 	return nil
 }
 
-func (c *GoogleCalendar) Block(calendarID string, from, to time.Time) error {
-	events, err := c.svc.Events.List(calendarID).
+func (c *Classpass) Block(_ context.Context, employee models.Employee, from, to time.Time) error {
+	events, err := c.svc.Events.List(employee.Classpass.GoogleCalendarId).
 		TimeMin(from.Format(time.RFC3339)).
 		TimeMax(to.Format(time.RFC3339)).
 		MaxResults(1000).
@@ -61,7 +63,7 @@ func (c *GoogleCalendar) Block(calendarID string, from, to time.Time) error {
 
 	event := &calendar.Event{
 		Summary:  BlockEventName,
-		Location: string(models.PlatformTreatwell),
+		Location: string(models.SourceTreatwell),
 		Start: &calendar.EventDateTime{
 			DateTime: from.Format(time.RFC3339),
 		},
@@ -70,7 +72,7 @@ func (c *GoogleCalendar) Block(calendarID string, from, to time.Time) error {
 		},
 	}
 
-	_, err = c.svc.Events.Insert(calendarID, event).Do()
+	_, err = c.svc.Events.Insert(employee.Classpass.GoogleCalendarId, event).Do()
 	if err != nil {
 		return fmt.Errorf("failed to block time slot from %s to %s: %w", from, to, err)
 	}

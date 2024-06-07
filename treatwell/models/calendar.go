@@ -2,7 +2,12 @@ package models
 
 import (
 	"fmt"
+	"strconv"
 	"time"
+
+	"github.com/Ventilateur/helia-nails/config"
+	coremodels "github.com/Ventilateur/helia-nails/core/models"
+	"github.com/Ventilateur/helia-nails/utils"
 )
 
 type Calendar struct {
@@ -82,4 +87,33 @@ func (a *Appointment) EndAt() time.Time {
 	}
 
 	return t
+}
+
+func (a *Appointment) CoreModel(config *config.Config) coremodels.Appointment {
+	source, id := utils.ParseCustomID(a.Notes)
+
+	return coremodels.Appointment{
+		Source: source,
+		Ids: coremodels.AppointmentIds{
+			Treatwell: strconv.Itoa(a.Id),
+			Planity: func() string {
+				if source == coremodels.SourcePlanity {
+					return id
+				}
+				return ""
+			}(),
+			Classpass: func() string {
+				if source == coremodels.SourceClassPass {
+					return id
+				}
+				return ""
+			}(),
+		},
+		Employee:   config.GetEmployee(coremodels.SourceTreatwell, strconv.Itoa(a.Id)),
+		Service:    config.GetService(coremodels.SourceTreatwell, strconv.Itoa(a.OfferId), strconv.Itoa(a.SkuId)),
+		StartTime:  a.StartAt(),
+		EndTime:    a.EndAt(),
+		ClientName: a.ConsumerName,
+		Notes:      a.Notes,
+	}
 }

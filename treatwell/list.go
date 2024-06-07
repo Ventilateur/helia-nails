@@ -1,54 +1,34 @@
 package treatwell
 
 import (
+	"context"
 	"fmt"
 	"net/http"
-	"strconv"
+	"slices"
 	"time"
 
 	"github.com/Ventilateur/helia-nails/core/models"
 	twmodels "github.com/Ventilateur/helia-nails/treatwell/models"
-	"github.com/Ventilateur/helia-nails/utils"
 )
 
-func (tw *Treatwell) ListAppointments(employee string, from, to time.Time) (map[string]models.Appointment, error) {
+func (tw *Treatwell) List(_ context.Context, employee models.Employee, from time.Time, to time.Time) ([]models.Appointment, error) {
 	twCalendar, err := tw.getCalendar(from, to)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get calendar: %w", err)
 	}
 
-	appointments := map[string]models.Appointment{}
-	for _, appointment := range twCalendar.Appointments {
-		if appointment.EmployeeName != employee {
+	var appointments []models.Appointment
+	for _, twAppointment := range twCalendar.Appointments {
+		if twAppointment.EmployeeId != employee.Treatwell.Id {
 			continue
 		}
 
-		start, end, err := utils.ParseTimes(
-			fmt.Sprintf("%sT%s:00", appointment.AppointmentDate, appointment.StartTime),
-			fmt.Sprintf("%sT%s:00", appointment.AppointmentDate, appointment.EndTime),
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		source, id := utils.ParseCustomID(appointment.Notes)
-		if id == "" {
-			id = strconv.Itoa(appointment.Id)
-		}
-
-		appointments[id] = models.Appointment{
-			Id:               id,
-			Source:           source,
-			Employee:         appointment.EmployeeName,
-			ClientName:       appointment.ConsumerName,
-			StartTime:        start,
-			EndTime:          end,
-			Offer:            appointment.OfferName,
-			Notes:            appointment.Notes,
-			OriginalPlatform: models.PlatformTreatwell,
-			OriginalID:       strconv.Itoa(appointment.Id),
-		}
+		appointments = append(appointments, twAppointment.CoreModel(tw.config))
 	}
+
+	slices.SortFunc(appointments, func(a1, a2 models.Appointment) int {
+		return a1.StartTime.Compare(a2.StartTime)
+	})
 
 	return appointments, nil
 }

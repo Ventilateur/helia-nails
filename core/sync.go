@@ -1,155 +1,87 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"time"
 
+	"github.com/Ventilateur/helia-nails/config"
 	"github.com/Ventilateur/helia-nails/core/models"
-	"github.com/Ventilateur/helia-nails/googlecalendar"
-	"github.com/Ventilateur/helia-nails/mapping"
 	"github.com/Ventilateur/helia-nails/treatwell"
 	"github.com/Ventilateur/helia-nails/utils"
 )
 
-type Sync struct {
-	tw *treatwell.Treatwell
-	gc *googlecalendar.GoogleCalendar
+type Platform interface {
+	List(ctx context.Context, employee models.Employee, from time.Time, to time.Time) ([]models.Appointment, error)
+	Book(ctx context.Context, appointment models.Appointment) error
+	Update(ctx context.Context, appointment models.Appointment) error
+	Delete(ctx context.Context, appointment models.Appointment) error
+	Block(ctx context.Context, employee models.Employee, from, to time.Time) error
+	Name() models.Source
 }
 
-func New(tw *treatwell.Treatwell, ga *googlecalendar.GoogleCalendar) *Sync {
-	return &Sync{
-		tw: tw,
-		gc: ga,
-	}
-}
+func Sync(src Platform, dest Platform, employee models.Employee, from time.Time, to time.Time) error {
+	slog.Info(fmt.Sprintf("Syncing %s -> %s...", src.Name(), dest.Name()))
 
-func (s *Sync) TreatwellToGoogleCalendar(employee string, from time.Time, to time.Time, exceptSource models.Source) error {
-	slog.Info("Syncing Treatwell to Google Calendar...")
-
-	calendarID := mapping.EmployeeGoogleCalendarIDMap[employee]
-
-	allTWAppointments, err := s.tw.ListAppointments(employee, from, to)
+	srcAppointments, err := src.List(nil, employee, from, to)
 	if err != nil {
 		return err
 	}
 
-	twAppointments := map[string]models.Appointment{}
-	for id, appointment := range allTWAppointments {
-		if appointment.Employee == employee {
-			twAppointments[id] = appointment
-		}
-	}
-
-	ggEvents, err := s.gc.List(calendarID, from, to)
+	destAppointments, err := dest.List(nil, employee, from, to)
 	if err != nil {
 		return err
 	}
 
-	for _, twAppointment := range utils.MapToOrderedSlice(twAppointments) {
-		// Ignore to avoid duplication
-		if twAppointment.Source == exceptSource {
-			slog.Info(fmt.Sprintf("Ignore: %s", twAppointment))
-			continue
-		}
-
-		if ggEvent, ok := ggEvents[twAppointment.Id]; ok {
-			if needUpdate(twAppointment, ggEvent) {
-				// if the TW appointment is already on GG and needs to be updated
-				err = s.gc.Update(calendarID, ggEvent.OriginalID, twAppointment)
-				if err != nil {
+	for _, srcAppt := range srcAppointments {
+		if destAppt, ok := findAppointment(destAppointments, srcAppt); ok {
+			if needUpdate(srcAppt, destAppt) {
+				if srcAppt.Source != dest.Name() {
+					if err = dest.Update(nil, srcAppt); err != nil {
+						return err
+					}
+					slog.Info(fmt.Sprintf("Update %s -> %s: %v to %v", src.Name(), dest.Name(), destAppt, srcAppt))
+				} else {
+					if err = src.Update(nil, destAppt); err != nil {
+						return err
+					}
+					slog.Info(fmt.Sprintf("Update %s -> %s: %v to %v", dest.Name(), src.Name(), srcAppt, destAppt))
+				}
+			} else {
+				slog.Info(fmt.Sprintf("Keep: %v", srcAppt))
+			}
+		} else {
+			// if the source appointment is not found on destination
+			if srcAppt.Source != dest.Name() {
+				// if the appointment doesn't come from the destination platform, then add it on destination platform
+				if err := dest.Book(nil, srcAppt); err != nil {
 					return err
 				}
-				slog.Info(fmt.Sprintf("Update: %s to %s", ggEvent, twAppointment))
+				slog.Info(fmt.Sprintf("Add in %s: %v", dest.Name(), srcAppt))
 			} else {
-				slog.Info(fmt.Sprintf("Keep: %s", ggEvent))
-			}
-		} else {
-			// if the TW appointment is not on GG and needs to be added
-			err = s.gc.Book(calendarID, twAppointment)
-			if err != nil {
-				return err
-			}
-			slog.Info(fmt.Sprintf("Add: %s", twAppointment))
-		}
-	}
-
-	for _, event := range utils.MapToOrderedSlice(ggEvents) {
-		if _, ok := twAppointments[event.Id]; !ok && event.Source == models.SourceTreatwell {
-			// If the GG event is marked as TW source but doesn't exist in TW, then delete it (case when an appointment is deleted)
-			err = s.gc.DeleteAppointment(calendarID, event.OriginalID)
-			if err != nil {
-				return fmt.Errorf("failed to delete event %s: %w", event, err)
-			}
-			slog.Info(fmt.Sprintf("Delete: %s", event))
-		}
-	}
-
-	return nil
-}
-
-func (s *Sync) GoogleCalendarToTreatwell(employee string, from time.Time, to time.Time) error {
-	slog.Info("Syncing Google Calendar to Treatwell...")
-
-	calendarID := mapping.EmployeeGoogleCalendarIDMap[employee]
-
-	allTWAppointments, err := s.tw.ListAppointments(employee, from, to)
-	if err != nil {
-		return err
-	}
-
-	twAppointments := map[string]models.Appointment{}
-	for id, appointment := range allTWAppointments {
-		if appointment.Employee == employee {
-			twAppointments[id] = appointment
-		}
-	}
-
-	ggEvents, err := s.gc.List(calendarID, from, to)
-	if err != nil {
-		return err
-	}
-
-	for _, event := range utils.MapToOrderedSlice(ggEvents) {
-		if event.Source == models.SourceTreatwell {
-			slog.Info(fmt.Sprintf("Ignore: %s", event.String()))
-			continue
-		}
-
-		if appointment, ok := twAppointments[event.Id]; ok {
-			if needUpdate(appointment, event) {
-				// if the GG event is already on TW and needs to be updated
-				appointment.Employee = event.Employee
-				appointment.StartTime = event.StartTime
-				appointment.EndTime = event.EndTime
-
-				err = s.tw.Update(appointment)
-				if err != nil {
-					return fmt.Errorf("failed to update Treatwell event %s: %w", appointment, err)
+				// if the appointment comes from the destination platform, remove it from the source platform
+				if err := src.Delete(nil, srcAppt); err != nil {
+					return err
 				}
-				slog.Info(fmt.Sprintf("Update: %s to %s", appointment, event))
-			} else {
-				slog.Info(fmt.Sprintf("Keep: %s", appointment))
+				slog.Info(fmt.Sprintf("Delete in %s: %v", src.Name(), srcAppt))
 			}
-		} else {
-			// if the GG event is not on TW and needs to be added
-			event.Employee = employee
-			err = s.tw.Book(event)
-			if err != nil {
-				return fmt.Errorf("failed to book Treatwell from event %s: %w", event.Id, err)
-			}
-			slog.Info(fmt.Sprintf("Add: %s", event))
 		}
 	}
 
-	for _, twAppointment := range utils.MapToOrderedSlice(twAppointments) {
-		if _, ok := ggEvents[twAppointment.Id]; !ok && twAppointment.Source != models.SourceTreatwell {
-			// If the TW appointment is marked as GG source but doesn't exist in GG, then delete it (case when an appointment is deleted)
-			err = s.tw.Delete(twAppointment.OriginalID)
-			if err != nil {
-				return fmt.Errorf("failed to delete appointment %s: %w", twAppointment, err)
+	for _, destAppt := range destAppointments {
+		if _, ok := findAppointment(srcAppointments, destAppt); !ok {
+			if destAppt.Source == dest.Name() {
+				if err := src.Book(nil, destAppt); err != nil {
+					return err
+				}
+				slog.Info(fmt.Sprintf("Book1 in %s: %v", src.Name(), destAppt))
+			} else {
+				if err := dest.Delete(nil, destAppt); err != nil {
+					return err
+				}
+				slog.Info(fmt.Sprintf("Delete in %s: %v", dest.Name(), destAppt))
 			}
-			slog.Info(fmt.Sprintf("Delete: %s", twAppointment))
 		}
 	}
 
@@ -159,33 +91,47 @@ func (s *Sync) GoogleCalendarToTreatwell(employee string, from time.Time, to tim
 func needUpdate(a1, a2 models.Appointment) bool {
 	timeChanges := a1.StartTime.Round(time.Minute) != a2.StartTime.Round(time.Minute) ||
 		a1.EndTime.Round(time.Minute) != a2.EndTime.Round(time.Minute)
-	employeeChanges := a1.Employee != a2.Employee
+	employeeChanges := a1.Employee.Name != a2.Employee.Name
 
 	return timeChanges || employeeChanges
 }
 
-func (s *Sync) SyncWorkingHours(employee string, from time.Time, to time.Time) error {
+func findAppointment(appts []models.Appointment, appt models.Appointment) (models.Appointment, bool) {
+	for _, each := range appts {
+		if each.Ids.Treatwell == appt.Ids.Treatwell ||
+			each.Ids.Classpass == appt.Ids.Classpass ||
+			each.Ids.Planity == appt.Ids.Planity {
+			return each, true
+		}
+	}
+	return models.Appointment{}, false
+}
+
+func SyncWorkingHours(cfg *config.Config, tw *treatwell.Treatwell, employee models.Employee, from time.Time, to time.Time, otherPlatform Platform) error {
+	ctx := context.Background()
 	date := from
 
 	for date.Before(to) {
-		timeSlots, err := s.tw.GetWorkingHours(employee, date)
+		openTime, closeTime, err := utils.ParseTimes(
+			fmt.Sprintf("%sT%s:00+00:00", date.Format(time.DateOnly), cfg.OpenTime),
+			fmt.Sprintf("%sT%s:00+00:00", date.Format(time.DateOnly), cfg.CloseTime),
+		)
 		if err != nil {
-			return fmt.Errorf("failed to get working hours of %s on %s: %w", employee, date.Format(time.DateOnly), err)
+			return fmt.Errorf("failed to parse open/close times [%s, %s]: %w", cfg.OpenTime, cfg.CloseTime, err)
 		}
 
-		calendarID := mapping.EmployeeGoogleCalendarIDMap[employee]
+		timeSlots, err := tw.GetWorkingHours(employee, date)
+		if err != nil {
+			return fmt.Errorf("failed to get working hours of %s on %s: %w", employee.Name, date.Format(time.DateOnly), err)
+		}
 
 		if len(timeSlots) == 0 {
 			// The employee doesn't work that day -> Block from 10:15 to 19:15
-			err = s.gc.Block(
-				calendarID,
-				time.Date(date.Year(), date.Month(), date.Day(), 10, 15, 0, 0, utils.DefaultLocation),
-				time.Date(date.Year(), date.Month(), date.Day(), 19, 15, 0, 0, utils.DefaultLocation),
-			)
-			if err != nil {
+			if err := otherPlatform.Block(ctx, employee, openTime, closeTime); err != nil {
 				return fmt.Errorf("failed to block date %s: %w", date.Format(time.DateOnly), err)
 			}
 		} else {
+			// The employee works that day but may start late or finish early
 			slot := timeSlots[0]
 			slotFrom, slotTo, err := utils.ParseTimes(
 				fmt.Sprintf("%sT%s:00+00:00", date.Format(time.DateOnly), slot.TimeFrom),
@@ -195,28 +141,16 @@ func (s *Sync) SyncWorkingHours(employee string, from time.Time, to time.Time) e
 				return fmt.Errorf("failed to parse time slots %v: %w", slot, err)
 			}
 
-			if slot.TimeFrom > "10:15" {
-				// Block from 10:15 to TimeFrom
-				err = s.gc.Block(
-					calendarID,
-					time.Date(date.Year(), date.Month(), date.Day(), 10, 15, 0, 0, utils.DefaultLocation),
-					slotFrom,
-				)
-				if err != nil {
-					return fmt.Errorf("failed to block date %s from 10:15 to %s: %w",
-						date.Format(time.DateOnly), slot.TimeFrom, err)
+			if slot.TimeFrom > cfg.OpenTime {
+				// Block from open time (e.g. "10:15") to TimeFrom
+				if err := otherPlatform.Block(ctx, employee, openTime, slotFrom); err != nil {
+					return fmt.Errorf("failed to block date %s from 10:15 to %s: %w", date.Format(time.DateOnly), slot.TimeFrom, err)
 				}
 			}
-			if slot.TimeTo < "19:15" {
-				// Block from TimeTo to 19:15
-				err = s.gc.Block(
-					calendarID,
-					slotTo,
-					time.Date(date.Year(), date.Month(), date.Day(), 19, 15, 0, 0, utils.DefaultLocation),
-				)
-				if err != nil {
-					return fmt.Errorf("failed to block date %s from %s to 19:15: %w",
-						date.Format(time.DateOnly), slot.TimeTo, err)
+			if slot.TimeTo < cfg.CloseTime {
+				// Block from TimeTo to close time (e.g. "19:15")
+				if err := otherPlatform.Block(ctx, employee, slotTo, closeTime); err != nil {
+					return fmt.Errorf("failed to block date %s from %s to 19:15: %w", date.Format(time.DateOnly), slot.TimeTo, err)
 				}
 			}
 		}
