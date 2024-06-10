@@ -21,15 +21,15 @@ type Platform interface {
 	Name() models.Source
 }
 
-func Sync(src Platform, dest Platform, employee models.Employee, from time.Time, to time.Time) error {
-	slog.Info(fmt.Sprintf("Syncing %s -> %s...", src.Name(), dest.Name()))
+func Sync(ctx context.Context, src Platform, dest Platform, employee models.Employee, from time.Time, to time.Time) error {
+	slog.Info(fmt.Sprintf("Syncing [%s] %s -> %s...", employee.Name, src.Name(), dest.Name()))
 
-	srcAppointments, err := src.List(nil, employee, from, to)
+	srcAppointments, err := src.List(ctx, employee, from, to)
 	if err != nil {
 		return err
 	}
 
-	destAppointments, err := dest.List(nil, employee, from, to)
+	destAppointments, err := dest.List(ctx, employee, from, to)
 	if err != nil {
 		return err
 	}
@@ -38,15 +38,19 @@ func Sync(src Platform, dest Platform, employee models.Employee, from time.Time,
 		if destAppt, ok := findAppointment(destAppointments, srcAppt); ok {
 			if needUpdate(srcAppt, destAppt) {
 				if srcAppt.Source != dest.Name() {
-					if err = dest.Update(nil, srcAppt); err != nil {
+					if err = dest.Update(ctx, srcAppt); err != nil {
 						return err
 					}
 					slog.Info(fmt.Sprintf("Update %s -> %s: %v to %v", src.Name(), dest.Name(), destAppt, srcAppt))
 				} else {
-					if err = src.Update(nil, destAppt); err != nil {
+					tmp := srcAppt
+					tmp.Employee = destAppt.Employee
+					tmp.StartTime = destAppt.StartTime
+					tmp.EndTime = destAppt.EndTime
+					if err = src.Update(ctx, tmp); err != nil {
 						return err
 					}
-					slog.Info(fmt.Sprintf("Update %s -> %s: %v to %v", dest.Name(), src.Name(), srcAppt, destAppt))
+					slog.Info(fmt.Sprintf("Update %s -> %s: %v", dest.Name(), src.Name(), tmp))
 				}
 			} else {
 				slog.Info(fmt.Sprintf("Keep: %v", srcAppt))
@@ -55,13 +59,13 @@ func Sync(src Platform, dest Platform, employee models.Employee, from time.Time,
 			// if the source appointment is not found on destination
 			if srcAppt.Source != dest.Name() {
 				// if the appointment doesn't come from the destination platform, then add it on destination platform
-				if err := dest.Book(nil, srcAppt); err != nil {
+				if err := dest.Book(ctx, srcAppt); err != nil {
 					return err
 				}
 				slog.Info(fmt.Sprintf("Add in %s: %v", dest.Name(), srcAppt))
 			} else {
 				// if the appointment comes from the destination platform, remove it from the source platform
-				if err := src.Delete(nil, srcAppt); err != nil {
+				if err := src.Delete(ctx, srcAppt); err != nil {
 					return err
 				}
 				slog.Info(fmt.Sprintf("Delete in %s: %v", src.Name(), srcAppt))
@@ -72,12 +76,12 @@ func Sync(src Platform, dest Platform, employee models.Employee, from time.Time,
 	for _, destAppt := range destAppointments {
 		if _, ok := findAppointment(srcAppointments, destAppt); !ok {
 			if destAppt.Source == dest.Name() {
-				if err := src.Book(nil, destAppt); err != nil {
+				if err := src.Book(ctx, destAppt); err != nil {
 					return err
 				}
-				slog.Info(fmt.Sprintf("Book1 in %s: %v", src.Name(), destAppt))
+				slog.Info(fmt.Sprintf("Book in %s: %v", src.Name(), destAppt))
 			} else {
-				if err := dest.Delete(nil, destAppt); err != nil {
+				if err := dest.Delete(ctx, destAppt); err != nil {
 					return err
 				}
 				slog.Info(fmt.Sprintf("Delete in %s: %v", dest.Name(), destAppt))
@@ -98,13 +102,20 @@ func needUpdate(a1, a2 models.Appointment) bool {
 
 func findAppointment(appts []models.Appointment, appt models.Appointment) (models.Appointment, bool) {
 	for _, each := range appts {
-		if each.Ids.Treatwell == appt.Ids.Treatwell ||
-			each.Ids.Classpass == appt.Ids.Classpass ||
-			each.Ids.Planity == appt.Ids.Planity {
+		if equalIgnoreEmpty(each.Ids.Treatwell, appt.Ids.Treatwell) ||
+			equalIgnoreEmpty(each.Ids.Classpass, appt.Ids.Classpass) ||
+			equalIgnoreEmpty(each.Ids.Planity, appt.Ids.Planity) {
 			return each, true
 		}
 	}
 	return models.Appointment{}, false
+}
+
+func equalIgnoreEmpty(s1, s2 string) bool {
+	if s1 == "" || s2 == "" {
+		return false
+	}
+	return s1 == s2
 }
 
 func SyncWorkingHours(cfg *config.Config, tw *treatwell.Treatwell, employee models.Employee, from time.Time, to time.Time, otherPlatform Platform) error {

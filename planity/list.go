@@ -41,16 +41,38 @@ func (p *Planity) list(ctx context.Context, employee coremodels.Employee, from, 
 
 		// Ignore appointments that were updated to other employee, cf. "rf" field.
 		// Ignore appointments that were deleted ("dat" field not null).
-		if appointment.Rf == id && appointment.DeletedAt == nil && (appointment.Title != blockTitle) == excludeBlocks {
+		if (appointment.Rf == "" || appointment.Rf == employee.Planity.Id) &&
+			appointment.DeletedAt == nil &&
+			(appointment.Title != blockTitle) == excludeBlocks {
+
+			source, alternateId := utils.ParseCustomID(appointment.Notes)
+			if source == "" {
+				source = coremodels.SourcePlanity
+			}
+
 			appointments = append(appointments, coremodels.Appointment{
-				Source:     coremodels.SourcePlanity,
-				Ids:        coremodels.AppointmentIds{Planity: id},
+				Source: source,
+				Ids: coremodels.AppointmentIds{
+					Planity: id,
+					Treatwell: func() string {
+						if source == coremodels.SourceTreatwell {
+							return alternateId
+						}
+						return ""
+					}(),
+					Classpass: func() string {
+						if source == coremodels.SourceClassPass {
+							return alternateId
+						}
+						return ""
+					}(),
+				},
 				Employee:   p.config.GetEmployee(coremodels.SourcePlanity, employee.Planity.Id),
 				Service:    p.config.GetService(coremodels.SourcePlanity, appointment.ServiceId, ""),
 				StartTime:  start,
 				EndTime:    end,
 				ClientName: appointment.Client.Name,
-				Notes:      appointment.Note,
+				Notes:      appointment.Notes,
 			})
 		}
 	}

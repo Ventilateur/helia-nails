@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/Ventilateur/helia-nails/classpass"
@@ -13,33 +12,26 @@ import (
 	"github.com/Ventilateur/helia-nails/treatwell"
 )
 
-func syncAll(ctx context.Context, cfg *config.Config, from time.Time, to time.Time) error {
-	tw, err := treatwell.New(&http.Client{Timeout: 1 * time.Minute}, cfg)
-	if err != nil {
-		return err
-	}
+type Sync struct {
+	tw  *treatwell.Treatwell
+	cp  *classpass.Classpass
+	pl  *planity.Planity
+	cfg *config.Config
+}
 
-	cp, err := classpass.New(ctx, cfg)
-	if err != nil {
-		return err
-	}
+func (s *Sync) syncAll(ctx context.Context, from time.Time, to time.Time) error {
 
-	pl, err := planity.New(ctx, &http.Client{Timeout: 15 * time.Second}, cfg)
-	if err != nil {
-		return err
-	}
-
-	if err := tw.Preload(from, to); err != nil {
+	if err := s.tw.Preload(from, to); err != nil {
 		return fmt.Errorf("failed to preload TW data: %w", err)
 	}
 
-	for _, employee := range cfg.Employees {
-		for _, platform := range []core.Platform{cp, pl} {
-			if err := core.SyncWorkingHours(cfg, tw, employee, from, to, platform); err != nil {
+	for _, employee := range s.cfg.Employees {
+		for _, platform := range []core.Platform{s.pl} {
+			if err := core.SyncWorkingHours(s.cfg, s.tw, employee, from, to, platform); err != nil {
 				return fmt.Errorf("failed to sync working hours to %s: %w", platform.Name(), err)
 			}
-			if err := core.Sync(tw, platform, employee, from, to); err != nil {
-				return fmt.Errorf("failed to sync %s <-> %s: %w", tw.Name(), platform.Name(), err)
+			if err := core.Sync(ctx, s.tw, platform, employee, from, to); err != nil {
+				return fmt.Errorf("failed to sync %s <-> %s: %w", s.tw.Name(), platform.Name(), err)
 			}
 		}
 	}

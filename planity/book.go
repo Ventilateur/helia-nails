@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	blockTitle = "BLOCK"
-	bookTitle  = "HELIA BOOK"
+	blockTitle = "__BLOCK__"
+	bookTitle  = "__HELIA_BOOK__"
 )
 
 func (p *Planity) Book(ctx context.Context, appointment coremodels.Appointment) error {

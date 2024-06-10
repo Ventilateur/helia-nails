@@ -33,7 +33,8 @@ func New(ctx context.Context, httpClient *http.Client, config *config.Config) (*
 	planity := &Planity{
 		httpClient: httpClient,
 		authInfo: AuthInfo{
-			ApiKey: config.Planity.ApiKey,
+			ApiKey:      config.Planity.ApiKey,
+			AccessToken: config.Planity.AccessToken,
 		},
 		outMsgCount: &atomic.Int64{},
 		config:      config,
@@ -49,6 +50,10 @@ func New(ctx context.Context, httpClient *http.Client, config *config.Config) (*
 
 func (p *Planity) Name() coremodels.Source {
 	return coremodels.SourcePlanity
+}
+
+func (p *Planity) AccessToken() string {
+	return p.authInfo.AccessToken
 }
 
 func (p *Planity) keepAlive(ctx context.Context) error {

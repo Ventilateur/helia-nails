@@ -54,7 +54,7 @@ func (r GetCalendarResponse) EmployeeId() string {
 
 type Appointment struct {
 	Title     string `json:"t,omitempty"`
-	Note      string `json:"c,omitempty"`
+	Notes     string `json:"c,omitempty"`
 	Start     string `json:"s,omitempty"`
 	Duration  int64  `json:"d,omitempty"`
 	ServiceId string `json:"se,omitempty"`

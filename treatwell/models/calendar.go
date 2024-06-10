@@ -91,6 +91,9 @@ func (a *Appointment) EndAt() time.Time {
 
 func (a *Appointment) CoreModel(config *config.Config) coremodels.Appointment {
 	source, id := utils.ParseCustomID(a.Notes)
+	if source == "" {
+		source = coremodels.SourceTreatwell
+	}
 
 	return coremodels.Appointment{
 		Source: source,
@@ -109,7 +112,7 @@ func (a *Appointment) CoreModel(config *config.Config) coremodels.Appointment {
 				return ""
 			}(),
 		},
-		Employee:   config.GetEmployee(coremodels.SourceTreatwell, strconv.Itoa(a.Id)),
+		Employee:   config.GetEmployee(coremodels.SourceTreatwell, strconv.Itoa(a.EmployeeId)),
 		Service:    config.GetService(coremodels.SourceTreatwell, strconv.Itoa(a.OfferId), strconv.Itoa(a.SkuId)),
 		StartTime:  a.StartAt(),
 		EndTime:    a.EndAt(),

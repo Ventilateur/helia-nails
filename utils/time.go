@@ -53,7 +53,7 @@ func ParseCustomID(s string) (models.Source, string) {
 		return models.Source(matches[1]), matches[2]
 	}
 
-	return models.SourceTreatwell, ""
+	return "", ""
 }
 
 func BoD(t time.Time) time.Time {

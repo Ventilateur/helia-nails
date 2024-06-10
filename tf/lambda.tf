@@ -23,7 +23,9 @@ data "aws_iam_policy_document" "get_parameters" {
   statement {
     effect  = "Allow"
     actions = [
+      "ssm:PutParameter",
       "ssm:GetParameter",
+      "kms:Encrypt",
       "kms:Decrypt"
     ]
     resources = [

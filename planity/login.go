@@ -3,11 +3,14 @@ package planity
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Ventilateur/helia-nails/planity/models"
 	"github.com/Ventilateur/helia-nails/utils"
+	"github.com/golang-jwt/jwt/v5"
 	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
 )
@@ -60,9 +63,33 @@ func (p *Planity) Login(email, password string) error {
 }
 
 func (p *Planity) Connect(ctx context.Context) error {
-	err := p.Login(p.config.Planity.Username, p.config.Planity.Password)
-	if err != nil {
-		return fmt.Errorf("failed to login: %w", err)
+	var (
+		login = true
+		err   error
+	)
+	if p.AccessToken() != "" {
+		token, _, err := new(jwt.Parser).ParseUnverified(p.AccessToken(), jwt.MapClaims{})
+		if err != nil {
+			return fmt.Errorf("failed to parse access token: %w", err)
+		}
+		exp, err := token.Claims.GetExpirationTime()
+		if err != nil {
+			return fmt.Errorf("failed to get access token's expiration time: %w", err)
+		}
+
+		if time.Now().Add(10 * time.Minute).Before(exp.Time) {
+			login = false
+		}
+	}
+
+	if login {
+		slog.Info("Token expired, logging in...")
+		err := p.Login(p.config.Planity.Username, p.config.Planity.Password)
+		if err != nil {
+			return fmt.Errorf("failed to login: %w", err)
+		}
+	} else {
+		slog.Info("Reuse access token...")
 	}
 
 	p.wsConn, _, err = websocket.Dial(ctx, p.config.Planity.WebsocketUrl, nil)

@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,6 +10,10 @@ import (
 	"time"
 
 	"github.com/Ventilateur/helia-nails/utils"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	"github.com/aws/aws-sdk-go-v2/service/ssm/types"
 )
 
 var httpClient = &http.Client{
@@ -56,4 +61,27 @@ func GetParam(keys ...string) (map[string]string, error) {
 	}
 
 	return m, nil
+}
+
+func SetParam(key, value string) error {
+	ctx := context.Background()
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return err
+	}
+
+	c := ssm.NewFromConfig(cfg)
+	_, err = c.PutParameter(ctx, &ssm.PutParameterInput{
+		Name:      aws.String(key),
+		Value:     aws.String(value),
+		DataType:  aws.String("text"),
+		Overwrite: aws.Bool(true),
+		Type:      types.ParameterTypeSecureString,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
