@@ -9,8 +9,8 @@ import (
 
 const (
 	PlanityTimeFormat = "2006-01-02 15:04"
-	defaultTimeFormat = "2006-01-02T15:04:05"
-	defaultIanaTz     = "Europe/Paris"
+	DefaultTimeFormat = "2006-01-02T15:04:05"
+	DefaultIanaTz     = "Europe/Paris"
 )
 
 var (
@@ -20,14 +20,14 @@ var (
 
 func init() {
 	var err error
-	DefaultLocation, err = time.LoadLocation(defaultIanaTz)
+	DefaultLocation, err = time.LoadLocation(DefaultIanaTz)
 	if err != nil {
 		panic(err)
 	}
 }
 
 func ParseTimes(t1Str, t2Str string) (time.Time, time.Time, error) {
-	t1, err := time.ParseInLocation(defaultTimeFormat, t1Str, DefaultLocation)
+	t1, err := time.ParseInLocation(DefaultTimeFormat, t1Str, DefaultLocation)
 	if err != nil {
 		t1, err = time.ParseInLocation(time.RFC3339, t1Str, DefaultLocation)
 		if err != nil {
@@ -35,7 +35,7 @@ func ParseTimes(t1Str, t2Str string) (time.Time, time.Time, error) {
 		}
 	}
 
-	t2, err := time.ParseInLocation(defaultTimeFormat, t2Str, DefaultLocation)
+	t2, err := time.ParseInLocation(DefaultTimeFormat, t2Str, DefaultLocation)
 	if err != nil {
 		t2, err = time.ParseInLocation(time.RFC3339, t2Str, DefaultLocation)
 		if err != nil {
@@ -64,4 +64,8 @@ func BoD(t time.Time) time.Time {
 func EoD(t time.Time) time.Time {
 	year, month, day := t.Date()
 	return time.Date(year, month, day, 23, 59, 59, 0, t.Location())
+}
+
+func TimeWithLocation(in time.Time) time.Time {
+	return time.Date(in.Year(), in.Month(), in.Day(), in.Hour(), in.Minute(), 0, 0, DefaultLocation)
 }

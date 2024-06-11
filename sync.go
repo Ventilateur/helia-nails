@@ -20,13 +20,12 @@ type Sync struct {
 }
 
 func (s *Sync) syncAll(ctx context.Context, from time.Time, to time.Time) error {
-
 	if err := s.tw.Preload(from, to); err != nil {
 		return fmt.Errorf("failed to preload TW data: %w", err)
 	}
 
 	for _, employee := range s.cfg.Employees {
-		for _, platform := range []core.Platform{s.pl} {
+		for _, platform := range []core.Platform{s.pl, s.cp} {
 			if err := core.SyncWorkingHours(s.cfg, s.tw, employee, from, to, platform); err != nil {
 				return fmt.Errorf("failed to sync working hours to %s: %w", platform.Name(), err)
 			}

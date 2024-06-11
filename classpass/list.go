@@ -67,13 +67,27 @@ func (c *Classpass) parseGoogleEvent(event *calendar.Event) (models.Appointment,
 	}
 
 	source, id := utils.ParseCustomID(event.Description)
+	if source == "" {
+		return models.Appointment{}, fmt.Errorf("unknown source")
+	}
 
 	// Created by sync
 	return models.Appointment{
-		Source: source, // Should ALWAYS be Treatwell
+		Source: source, // Should NEVER be Classpass
 		Ids: models.AppointmentIds{
-			Treatwell: id,
 			Classpass: event.Id,
+			Treatwell: func() string {
+				if source == models.SourceTreatwell {
+					return id
+				}
+				return ""
+			}(),
+			Planity: func() string {
+				if source == models.SourcePlanity {
+					return id
+				}
+				return ""
+			}(),
 		},
 		Service:   models.Service{}, // No need because it's a blocking event on Classpass POV
 		StartTime: start,

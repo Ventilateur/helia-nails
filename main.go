@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Ventilateur/helia-nails/aws"
+	"github.com/Ventilateur/helia-nails/classpass"
 	"github.com/Ventilateur/helia-nails/config"
 	"github.com/Ventilateur/helia-nails/planity"
 	"github.com/Ventilateur/helia-nails/treatwell"
@@ -48,10 +49,10 @@ func HandleRequest(ctx context.Context, event *Event) (*string, error) {
 			return nil, err
 		}
 
-		//cp, err := classpass.New(ctx, cfg)
-		//if err != nil {
-		//	return err
-		//}
+		cp, err := classpass.New(ctx, cfg)
+		if err != nil {
+			return nil, err
+		}
 
 		pl, err := planity.New(ctx, &http.Client{Timeout: 15 * time.Second}, cfg)
 		if err != nil {
@@ -60,7 +61,7 @@ func HandleRequest(ctx context.Context, event *Event) (*string, error) {
 
 		sync := Sync{
 			tw:  tw,
-			cp:  nil,
+			cp:  cp,
 			pl:  pl,
 			cfg: cfg,
 		}

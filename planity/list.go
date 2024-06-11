@@ -87,5 +87,5 @@ func parseTimes(startStr string, duration int64) (start time.Time, end time.Time
 	}
 	end = start.Add(time.Duration(duration) * time.Minute)
 
-	return start, end, nil
+	return utils.TimeWithLocation(start), utils.TimeWithLocation(end), nil
 }

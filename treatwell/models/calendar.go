@@ -77,7 +77,7 @@ func (a *Appointment) StartAt() time.Time {
 		panic(fmt.Errorf("invalid date time for [%s %s]: %w", a.AppointmentDate, a.StartTime, err))
 	}
 
-	return t
+	return utils.TimeWithLocation(t)
 }
 
 func (a *Appointment) EndAt() time.Time {
@@ -86,7 +86,7 @@ func (a *Appointment) EndAt() time.Time {
 		panic(fmt.Errorf("invalid date time for [%s %s]: %w", a.AppointmentDate, a.EndTime, err))
 	}
 
-	return t
+	return utils.TimeWithLocation(t)
 }
 
 func (a *Appointment) CoreModel(config *config.Config) coremodels.Appointment {

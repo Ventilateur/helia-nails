@@ -15,10 +15,10 @@ func (c *Classpass) Update(_ context.Context, appointment models.Appointment) er
 		appointment.Ids.Classpass,
 		&calendar.Event{
 			Start: &calendar.EventDateTime{
-				DateTime: appointment.StartTime.Format(time.RFC3339),
+				DateTime: appointment.StartTime.In(time.UTC).Format(time.RFC3339),
 			},
 			End: &calendar.EventDateTime{
-				DateTime: appointment.EndTime.Format(time.RFC3339),
+				DateTime: appointment.EndTime.In(time.UTC).Format(time.RFC3339),
 			},
 		},
 	).Do()

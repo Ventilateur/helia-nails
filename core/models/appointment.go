@@ -79,8 +79,8 @@ func (a Appointment) String() string {
 	return fmt.Sprintf("[%s] [%s %s-%s] [Source: %s] [%s]",
 		a.Employee.Name,
 		a.StartTime.Format(time.DateOnly),
-		a.StartTime.Format(time.TimeOnly),
-		a.EndTime.Format(time.TimeOnly),
+		a.StartTime.In(time.UTC).Format(time.TimeOnly),
+		a.EndTime.In(time.UTC).Format(time.TimeOnly),
 		a.Source,
 		a.Service.Name,
 	)

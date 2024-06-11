@@ -38,7 +38,11 @@ func Sync(ctx context.Context, src Platform, dest Platform, employee models.Empl
 		if destAppt, ok := findAppointment(destAppointments, srcAppt); ok {
 			if needUpdate(srcAppt, destAppt) {
 				if srcAppt.Source != dest.Name() {
-					if err = dest.Update(ctx, srcAppt); err != nil {
+					tmp := destAppt
+					tmp.Employee = srcAppt.Employee
+					tmp.StartTime = srcAppt.StartTime
+					tmp.EndTime = srcAppt.EndTime
+					if err = dest.Update(ctx, tmp); err != nil {
 						return err
 					}
 					slog.Info(fmt.Sprintf("Update %s -> %s: %v to %v", src.Name(), dest.Name(), destAppt, srcAppt))
@@ -93,8 +97,8 @@ func Sync(ctx context.Context, src Platform, dest Platform, employee models.Empl
 }
 
 func needUpdate(a1, a2 models.Appointment) bool {
-	timeChanges := a1.StartTime.Round(time.Minute) != a2.StartTime.Round(time.Minute) ||
-		a1.EndTime.Round(time.Minute) != a2.EndTime.Round(time.Minute)
+	timeChanges := !a1.StartTime.Round(time.Minute).Equal(a2.StartTime.Round(time.Minute)) ||
+		!a1.EndTime.Round(time.Minute).Equal(a2.EndTime.Round(time.Minute))
 	employeeChanges := a1.Employee.Name != a2.Employee.Name
 
 	return timeChanges || employeeChanges
@@ -138,7 +142,9 @@ func SyncWorkingHours(cfg *config.Config, tw *treatwell.Treatwell, employee mode
 
 		if len(timeSlots) == 0 {
 			// The employee doesn't work that day -> Block from 10:15 to 19:15
-			if err := otherPlatform.Block(ctx, employee, openTime, closeTime); err != nil {
+			if err := otherPlatform.Block(ctx, employee,
+				utils.TimeWithLocation(openTime), utils.TimeWithLocation(closeTime),
+			); err != nil {
 				return fmt.Errorf("failed to block date %s: %w", date.Format(time.DateOnly), err)
 			}
 		} else {
@@ -154,13 +160,17 @@ func SyncWorkingHours(cfg *config.Config, tw *treatwell.Treatwell, employee mode
 
 			if slot.TimeFrom > cfg.OpenTime {
 				// Block from open time (e.g. "10:15") to TimeFrom
-				if err := otherPlatform.Block(ctx, employee, openTime, slotFrom); err != nil {
+				if err := otherPlatform.Block(ctx, employee,
+					utils.TimeWithLocation(openTime), utils.TimeWithLocation(slotFrom),
+				); err != nil {
 					return fmt.Errorf("failed to block date %s from 10:15 to %s: %w", date.Format(time.DateOnly), slot.TimeFrom, err)
 				}
 			}
 			if slot.TimeTo < cfg.CloseTime {
 				// Block from TimeTo to close time (e.g. "19:15")
-				if err := otherPlatform.Block(ctx, employee, slotTo, closeTime); err != nil {
+				if err := otherPlatform.Block(ctx, employee,
+					utils.TimeWithLocation(slotTo), utils.TimeWithLocation(closeTime),
+				); err != nil {
 					return fmt.Errorf("failed to block date %s from %s to 19:15: %w", date.Format(time.DateOnly), slot.TimeTo, err)
 				}
 			}
