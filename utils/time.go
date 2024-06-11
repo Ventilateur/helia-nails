@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"regexp"
 	"time"
 
 	"github.com/Ventilateur/helia-nails/core/models"
@@ -14,7 +13,6 @@ const (
 )
 
 var (
-	customIDRegex   = regexp.MustCompile(`\${(\w+):([\dA-Za-z-_]+)}`)
 	DefaultLocation *time.Location
 )
 
@@ -47,7 +45,7 @@ func ParseTimes(t1Str, t2Str string) (time.Time, time.Time, error) {
 }
 
 func ParseCustomID(s string) (models.Source, string) {
-	matches := customIDRegex.FindStringSubmatch(s)
+	matches := models.CustomIDRegex.FindStringSubmatch(s)
 
 	if len(matches) > 0 {
 		return models.Source(matches[1]), matches[2]

@@ -39,9 +39,8 @@ func (p *Planity) list(ctx context.Context, employee coremodels.Employee, from, 
 			return nil, err
 		}
 
-		// Ignore appointments that were updated to other employee, cf. "rf" field.
 		// Ignore appointments that were deleted ("dat" field not null).
-		if (appointment.Rf == "" || appointment.Rf == employee.Planity.Id) &&
+		if (appointment.EmployeeId == employee.Planity.Id) &&
 			appointment.DeletedAt == nil &&
 			(appointment.Title != blockTitle) == excludeBlocks {
 

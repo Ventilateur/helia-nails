@@ -26,7 +26,8 @@ data "aws_iam_policy_document" "get_parameters" {
       "ssm:PutParameter",
       "ssm:GetParameter",
       "kms:Encrypt",
-      "kms:Decrypt"
+      "kms:Decrypt",
+      "s3:GetObject"
     ]
     resources = [
       "*"
@@ -132,6 +133,10 @@ resource "aws_scheduler_schedule" "example" {
     input    = jsonencode(
       {
         name : "sync"
+        planityAccessTokenPath : "/planity/accessToken"
+        platformConfigPath : "/config/platform"
+        configFileBucket : "helia-universea"
+        configFilePath : "config/config.yaml"
       }
     )
   }

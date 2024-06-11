@@ -21,7 +21,7 @@ type AuthInfo struct {
 	UserId      string
 }
 
-func (p *Planity) Login(email, password string) error {
+func (p *Planity) Login() error {
 	loginResp, err := utils.SendRequest[models.LoginResponse](
 		p.httpClient,
 		http.MethodPost,
@@ -38,7 +38,7 @@ func (p *Planity) Login(email, password string) error {
 		},
 		strings.NewReader(fmt.Sprintf(
 			`{"returnSecureToken":true,"email":"%s","password":"%s","clientType":"CLIENT_TYPE_WEB"}`,
-			email, password,
+			p.config.Planity.Username, p.config.Planity.Password,
 		)),
 	)
 	if err != nil {
@@ -70,21 +70,22 @@ func (p *Planity) Connect(ctx context.Context) error {
 	if p.AccessToken() != "" {
 		token, _, err := new(jwt.Parser).ParseUnverified(p.AccessToken(), jwt.MapClaims{})
 		if err != nil {
-			return fmt.Errorf("failed to parse access token: %w", err)
-		}
-		exp, err := token.Claims.GetExpirationTime()
-		if err != nil {
-			return fmt.Errorf("failed to get access token's expiration time: %w", err)
-		}
+			login = true
+		} else {
+			exp, err := token.Claims.GetExpirationTime()
+			if err != nil {
+				return fmt.Errorf("failed to get access token's expiration time: %w", err)
+			}
 
-		if time.Now().Add(10 * time.Minute).Before(exp.Time) {
-			login = false
+			if time.Now().Add(10 * time.Minute).Before(exp.Time) {
+				login = false
+			}
 		}
 	}
 
 	if login {
 		slog.Info("Token expired, logging in...")
-		err := p.Login(p.config.Planity.Username, p.config.Planity.Password)
+		err := p.Login()
 		if err != nil {
 			return fmt.Errorf("failed to login: %w", err)
 		}

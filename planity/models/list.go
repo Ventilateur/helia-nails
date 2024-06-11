@@ -53,17 +53,14 @@ func (r GetCalendarResponse) EmployeeId() string {
 }
 
 type Appointment struct {
-	Title     string `json:"t,omitempty"`
-	Notes     string `json:"c,omitempty"`
-	Start     string `json:"s,omitempty"`
-	Duration  int64  `json:"d,omitempty"`
-	ServiceId string `json:"se,omitempty"`
-	Client    Client `json:"cu,omitempty"`
-
-	// In case an appointment is updated from employee 1 to 2, the appointment will still appear in employee 1's
-	// calendar, but the field rf will point to employee 2.
-	Rf        string `json:"rf,omitempty"`
-	DeletedAt *int64 `json:"dat,omitempty"`
+	Title      string `json:"t,omitempty"`
+	Notes      string `json:"c,omitempty"`
+	Start      string `json:"s,omitempty"`
+	Duration   int64  `json:"d,omitempty"`
+	ServiceId  string `json:"se,omitempty"`
+	Client     Client `json:"cu,omitempty"`
+	EmployeeId string `json:"ca,omitempty"`
+	DeletedAt  *int64 `json:"dat,omitempty"`
 }
 
 type Client struct {

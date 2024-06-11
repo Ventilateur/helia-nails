@@ -57,7 +57,7 @@ func Sync(ctx context.Context, src Platform, dest Platform, employee models.Empl
 					slog.Info(fmt.Sprintf("Update %s -> %s: %v", dest.Name(), src.Name(), tmp))
 				}
 			} else {
-				slog.Info(fmt.Sprintf("Keep: %v", srcAppt))
+				//slog.Info(fmt.Sprintf("Keep: %v", srcAppt))
 			}
 		} else {
 			// if the source appointment is not found on destination

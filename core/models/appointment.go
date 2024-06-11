@@ -2,7 +2,12 @@ package models
 
 import (
 	"fmt"
+	"regexp"
 	"time"
+)
+
+var (
+	CustomIDRegex = regexp.MustCompile(`\${(\w+):([\dA-Za-z-_]+)}`)
 )
 
 type Source string
@@ -55,7 +60,12 @@ type AppointmentIds struct {
 }
 
 func (a Appointment) CustomNotes() string {
-	return fmt.Sprintf("${%s:%s}\n%s", string(a.Source), a.SourceId(), a.Notes)
+	matches := CustomIDRegex.FindStringSubmatch(a.Notes)
+
+	if len(matches) < 1 {
+		return fmt.Sprintf("${%s:%s}\n%s", string(a.Source), a.SourceId(), a.Notes)
+	}
+	return a.Notes
 }
 
 func (a Appointment) SourceId() string {

@@ -54,7 +54,7 @@ func GetParam(keys ...string) (map[string]string, error) {
 		r := &GetParamsResponse{}
 		err = json.NewDecoder(resp.Body).Decode(r)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", utils.ErrUnmarshalJSON, err)
+			return nil, fmt.Errorf("failed to unmarshal json: key=%s: %w", key, err)
 		}
 
 		m[key] = r.Parameter.Value

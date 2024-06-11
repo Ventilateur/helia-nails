@@ -36,12 +36,12 @@ func (tw *Treatwell) Book(_ context.Context, appointment models.Appointment) err
 		},
 	}
 
-	calendar, err := tw.getCalendar(appointment.StartTime, appointment.EndTime)
-	if err != nil {
-		return fmt.Errorf("failed to get calendar: %w", err)
-	}
+	//calendar, err := tw.getCalendar(appointment.StartTime, appointment.EndTime)
+	//if err != nil {
+	//	return fmt.Errorf("failed to get calendar: %w", err)
+	//}
 
-	employeeInfo := tw.employeeInfo2[appointment.Employee.Treatwell.Id]
+	employeeInfo := tw.employeeInfo[appointment.Employee.Treatwell.Id]
 
 	// Double check if employee can perform a service
 	canOffer := slices.Contains(employeeInfo.Info.EmployeeOffers, twAppointment.ServiceId)
@@ -50,27 +50,27 @@ func (tw *Treatwell) Book(_ context.Context, appointment models.Appointment) err
 	}
 
 	// Check for valid time slot and overlapping
-	for _, workingHour := range employeeInfo.WorkingHours {
-		if workingHour.Date == twAppointment.AppointmentDate && // this day
-			len(workingHour.TimeSlots) > 0 && // employee works
-			workingHour.TimeSlots[0].TimeFrom <= twAppointment.StartTime && // working hour starts before the appointment
-			workingHour.TimeSlots[0].TimeTo >= twAppointment.EndTime { // working hour ends after the appointment
-
-			// If employee works at the requested hour, check if there are already booked appointments there
-			for _, bookedAppointment := range calendar.Appointments {
-				if bookedAppointment.AppointmentDate == twAppointment.AppointmentDate && bookedAppointment.EmployeeId == employeeInfo.Info.Id {
-					if isOverlapping(bookedAppointment, *twAppointment) {
-						return fmt.Errorf(
-							"employee %s cannot perform at %s %s because of overlapping",
-							appointment.Employee.Name,
-							twAppointment.AppointmentDate,
-							twAppointment.StartTime,
-						)
-					}
-				}
-			}
-		}
-	}
+	//for _, workingHour := range employeeInfo.WorkingHours {
+	//	if workingHour.Date == twAppointment.AppointmentDate && // this day
+	//		len(workingHour.TimeSlots) > 0 && // employee works
+	//		workingHour.TimeSlots[0].TimeFrom <= twAppointment.StartTime && // working hour starts before the appointment
+	//		workingHour.TimeSlots[0].TimeTo >= twAppointment.EndTime { // working hour ends after the appointment
+	//
+	//		// If employee works at the requested hour, check if there are already booked appointments there
+	//		for _, bookedAppointment := range calendar.Appointments {
+	//			if bookedAppointment.AppointmentDate == twAppointment.AppointmentDate && bookedAppointment.EmployeeId == employeeInfo.Info.Id {
+	//				if isOverlapping(bookedAppointment, *twAppointment) {
+	//					return fmt.Errorf(
+	//						"employee %s cannot perform at %s %s because of overlapping",
+	//						appointment.Employee.Name,
+	//						twAppointment.AppointmentDate,
+	//						twAppointment.StartTime,
+	//					)
+	//				}
+	//			}
+	//		}
+	//	}
+	//}
 
 	return tw.book(twAppointment, fmt.Sprintf("[%s] %s", appointment.Source, appointment.ClientName))
 }

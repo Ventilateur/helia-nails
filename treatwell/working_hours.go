@@ -10,7 +10,7 @@ import (
 func (tw *Treatwell) GetWorkingHours(employee models.Employee, date time.Time) ([]models.TimeSlot, error) {
 	var timeSlots []models.TimeSlot
 
-	employeeInfo, ok := tw.employeeInfo2[employee.Treatwell.Id]
+	employeeInfo, ok := tw.employeeInfo[employee.Treatwell.Id]
 	if !ok {
 		return nil, fmt.Errorf("unknown employee %s", employee.Name)
 	}

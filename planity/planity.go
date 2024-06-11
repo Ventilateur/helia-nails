@@ -3,7 +3,9 @@ package planity
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -64,10 +66,20 @@ func (p *Planity) logIncomingMessages() {
 	for {
 		_, b, err := p.wsConn.Read(context.Background())
 		if err != nil {
-			slog.Error("failed to read incoming message", "error", err)
-			continue
+			if errors.Is(err, io.EOF) {
+				slog.Info("connection closed, reconnect...")
+				break
+			} else {
+				slog.Error("failed to read incoming message", "error", err)
+				panic(err)
+			}
 		}
 		p.messages.Store(string(b), struct{}{})
+	}
+
+	if err := p.Connect(context.Background()); err != nil {
+		slog.Error("failed to reconnect", "error", err)
+		panic(err)
 	}
 }
 

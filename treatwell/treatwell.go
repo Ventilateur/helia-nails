@@ -31,8 +31,7 @@ type Treatwell struct {
 	employees            *twmodels.Employees
 	employeeWorkingHours *twmodels.EmployeesWorkingHours
 
-	employeeInfo  map[string]twmodels.EmployeeWrapper
-	employeeInfo2 map[int]twmodels.EmployeeWrapper
+	employeeInfo map[int]twmodels.EmployeeWrapper
 }
 
 func New(httpClient *http.Client, config *config.Config) (*Treatwell, error) {
@@ -144,9 +143,7 @@ func (tw *Treatwell) Login(user, password string) error {
 
 func (tw *Treatwell) Preload(from, to time.Time) error {
 	var err error
-
-	tw.employeeInfo = map[string]twmodels.EmployeeWrapper{}
-	tw.employeeInfo2 = map[int]twmodels.EmployeeWrapper{}
+	tw.employeeInfo = map[int]twmodels.EmployeeWrapper{}
 
 	tw.employees, err = tw.getEmployeesInfo()
 	if err != nil {
@@ -154,10 +151,7 @@ func (tw *Treatwell) Preload(from, to time.Time) error {
 	}
 
 	for _, employee := range tw.employees.Employees {
-		tw.employeeInfo[employee.Name] = twmodels.EmployeeWrapper{
-			Info: employee,
-		}
-		tw.employeeInfo2[employee.Id] = twmodels.EmployeeWrapper{
+		tw.employeeInfo[employee.Id] = twmodels.EmployeeWrapper{
 			Info: employee,
 		}
 	}
@@ -168,16 +162,9 @@ func (tw *Treatwell) Preload(from, to time.Time) error {
 	}
 
 	for _, employeeWorkingHours := range tw.employeeWorkingHours.EmployeesWorkingHours {
-		if info, ok := tw.employeeInfo[employeeWorkingHours.EmployeeName]; ok {
+		if info, ok := tw.employeeInfo[employeeWorkingHours.EmployeeID]; ok {
 			info.WorkingHours = employeeWorkingHours.WorkingHours
-			tw.employeeInfo[employeeWorkingHours.EmployeeName] = info
-		} else {
-			return fmt.Errorf("unknown employee %s", employeeWorkingHours.EmployeeName)
-		}
-
-		if info, ok := tw.employeeInfo2[employeeWorkingHours.EmployeeID]; ok {
-			info.WorkingHours = employeeWorkingHours.WorkingHours
-			tw.employeeInfo2[employeeWorkingHours.EmployeeID] = info
+			tw.employeeInfo[employeeWorkingHours.EmployeeID] = info
 		} else {
 			return fmt.Errorf("unknown employee %s", employeeWorkingHours.EmployeeName)
 		}

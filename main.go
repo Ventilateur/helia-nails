@@ -16,13 +16,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const (
-	configFile         = "config"
-	planityAccessToken = "/planity/accessToken"
-)
-
 type Event struct {
-	Name string `json:"name"`
+	Name                   string `json:"name"`
+	PlanityAccessTokenPath string `json:"planityAccessTokenPath"`
+	PlatformConfigPath     string `json:"platformConfigPath"`
+	ConfigFileBucket       string `json:"configFileBucket"`
+	ConfigFilePath         string `json:"configFilePath"`
 }
 
 func HandleRequest(ctx context.Context, event *Event) (*string, error) {
@@ -32,17 +31,25 @@ func HandleRequest(ctx context.Context, event *Event) (*string, error) {
 
 	switch event.Name {
 	case "sync":
-		params, err := aws.GetParam(configFile, planityAccessToken)
+		params, err := aws.GetParam(event.PlatformConfigPath, event.PlanityAccessTokenPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get parameter: %w", err)
 		}
 
+		configFile, err := aws.GetConfig(event.ConfigFileBucket, event.ConfigFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get config file: %w", err)
+		}
+
 		cfg := &config.Config{}
-		if err := yaml.Unmarshal([]byte(params[configFile]), cfg); err != nil {
+		if err := yaml.Unmarshal(
+			[]byte(fmt.Sprintf("%s\n\n%s", params[event.PlatformConfigPath], configFile)),
+			cfg,
+		); err != nil {
 			return nil, fmt.Errorf("failed to parse config: %w", err)
 		}
 
-		cfg.Planity.AccessToken = params[planityAccessToken]
+		cfg.Planity.AccessToken = params[event.PlanityAccessTokenPath]
 
 		tw, err := treatwell.New(&http.Client{Timeout: 1 * time.Minute}, cfg)
 		if err != nil {
@@ -57,6 +64,12 @@ func HandleRequest(ctx context.Context, event *Event) (*string, error) {
 		pl, err := planity.New(ctx, &http.Client{Timeout: 15 * time.Second}, cfg)
 		if err != nil {
 			return nil, err
+		}
+
+		if pl.AccessToken() != params[event.PlanityAccessTokenPath] {
+			if err := aws.SetParam(event.PlanityAccessTokenPath, pl.AccessToken()); err != nil {
+				return nil, err
+			}
 		}
 
 		sync := Sync{
