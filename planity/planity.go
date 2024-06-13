@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -18,8 +19,9 @@ import (
 )
 
 const (
-	loginURL = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
-	tokenURL = "https://securetoken.googleapis.com/v1/token"
+	loginURL           = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
+	tokenURL           = "https://securetoken.googleapis.com/v1/token"
+	messageLengthLimit = 16384
 )
 
 type Planity struct {
@@ -58,8 +60,13 @@ func (p *Planity) AccessToken() string {
 	return p.authInfo.AccessToken
 }
 
-func (p *Planity) keepAlive(ctx context.Context) error {
-	return p.wsConn.Write(ctx, websocket.MessageText, []byte("0"))
+func (p *Planity) keepAlive() {
+	for {
+		time.Sleep(5 * time.Second)
+		if err := p.wsConn.Write(context.Background(), websocket.MessageText, []byte("0")); err != nil {
+			slog.Error("failed to send keep alive message")
+		}
+	}
 }
 
 func (p *Planity) logIncomingMessages() {
@@ -74,7 +81,25 @@ func (p *Planity) logIncomingMessages() {
 				panic(err)
 			}
 		}
-		p.messages.Store(string(b), struct{}{})
+
+		// Multiple messages
+		var msg string
+		if nb, err := strconv.Atoi(string(b)); err == nil {
+			var buff []byte
+			for i := 0; i < nb; i++ {
+				_, b, err := p.wsConn.Read(context.Background())
+				if err != nil {
+					slog.Error("failed to read incoming message", "error", err)
+					panic(err)
+				}
+				buff = append(buff, b...)
+			}
+			msg = string(buff)
+		} else {
+			msg = string(b)
+		}
+
+		p.messages.Store(msg, struct{}{})
 	}
 
 	if err := p.Connect(context.Background()); err != nil {

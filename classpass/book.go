@@ -3,7 +3,6 @@ package classpass
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/Ventilateur/helia-nails/core/models"
@@ -55,7 +54,6 @@ func (c *Classpass) Block(_ context.Context, employee models.Employee, from, to 
 			}
 			if start.Truncate(time.Hour).Equal(from.Truncate(time.Hour)) &&
 				end.Truncate(time.Hour).Equal(to.Truncate(time.Hour)) {
-				slog.Info(fmt.Sprintf("Already blocked from %s to %s", start, end))
 				return nil
 			}
 		}

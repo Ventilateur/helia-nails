@@ -3,7 +3,6 @@ package planity
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	coremodels "github.com/Ventilateur/helia-nails/core/models"
@@ -52,7 +51,6 @@ func (p *Planity) Block(ctx context.Context, employee coremodels.Employee, from,
 	for _, block := range blockers {
 		if block.StartTime.Truncate(time.Minute).Equal(from.Truncate(time.Minute)) &&
 			block.EndTime.Truncate(time.Minute).Equal(to.Truncate(time.Minute)) {
-			slog.Info(fmt.Sprintf("Already blocked from %s to %s", block.StartTime, block.EndTime))
 			return nil
 		}
 	}

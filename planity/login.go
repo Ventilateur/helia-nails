@@ -98,6 +98,8 @@ func (p *Planity) Connect(ctx context.Context) error {
 		return fmt.Errorf("failed to connect to websocket: %w", err)
 	}
 
+	p.wsConn.SetReadLimit(-1)
+
 	go p.logIncomingMessages()
 
 	if err := wsjson.Write(ctx, p.wsConn, models.NewAuthMessage(p.nextReqId(), p.authInfo.AccessToken)); err != nil {
