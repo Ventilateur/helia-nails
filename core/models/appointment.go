@@ -95,3 +95,11 @@ func (a Appointment) String() string {
 		a.Service.Name,
 	)
 }
+
+func (a Appointment) TreatwellStartTime() string {
+	return fmt.Sprintf("%02d:%02d", a.StartTime.Hour(), a.StartTime.Minute())
+}
+
+func (a Appointment) TreatwellEndTime() string {
+	return fmt.Sprintf("%02d:%02d", a.EndTime.Hour(), a.EndTime.Minute())
+}

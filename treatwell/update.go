@@ -26,8 +26,8 @@ func (tw *Treatwell) Update(_ context.Context, appointment models.Appointment) e
 	}
 
 	twAppointment.AppointmentDate = appointment.StartTime.Format(time.DateOnly)
-	twAppointment.StartTime = fmt.Sprintf("%02d:%02d", appointment.StartTime.Hour(), appointment.StartTime.Minute())
-	twAppointment.EndTime = fmt.Sprintf("%02d:%02d", appointment.EndTime.Hour(), appointment.EndTime.Minute())
+	twAppointment.StartTime = appointment.TreatwellStartTime()
+	twAppointment.EndTime = appointment.TreatwellEndTime()
 	twAppointment.EmployeeId = appointment.Employee.Treatwell.Id
 
 	payload, err := json.Marshal(twAppointment)

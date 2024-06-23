@@ -46,9 +46,14 @@ func (c *Classpass) List(ctx context.Context, employee models.Employee, from tim
 }
 
 func (c *Classpass) parseGoogleEvent(event *calendar.Event) (models.Appointment, error) {
-	start, end, err := utils.ParseTimes(event.Start.DateTime, event.End.DateTime)
+	start, err := utils.ParseGoogleEventTime(event.Start)
 	if err != nil {
-		return models.Appointment{}, fmt.Errorf("failed to parse from/to times: %w", err)
+		return models.Appointment{}, fmt.Errorf("failed to parse start times: %w", err)
+	}
+
+	end, err := utils.ParseGoogleEventTime(event.End)
+	if err != nil {
+		return models.Appointment{}, fmt.Errorf("failed to parse end times: %w", err)
 	}
 
 	// Created by ClassPass
@@ -60,8 +65,8 @@ func (c *Classpass) parseGoogleEvent(event *calendar.Event) (models.Appointment,
 				Classpass: event.Id,
 			},
 			Service:    c.config.GetService(models.SourceClassPass, strings.TrimSpace(matches[2]), ""),
-			StartTime:  start,
-			EndTime:    end,
+			StartTime:  utils.TimeWithLocation(start),
+			EndTime:    utils.TimeWithLocation(end),
 			ClientName: matches[1],
 		}, nil
 	}

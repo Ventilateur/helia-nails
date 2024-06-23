@@ -23,8 +23,8 @@ type BookAppointmentsRequest struct {
 func (tw *Treatwell) Book(_ context.Context, appointment models.Appointment) error {
 	twAppointment := &twmodels.Appointment{
 		AppointmentDate: appointment.StartTime.Format(time.DateOnly),
-		StartTime:       fmt.Sprintf("%02d:%02d", appointment.StartTime.Hour(), appointment.StartTime.Minute()),
-		EndTime:         fmt.Sprintf("%02d:%02d", appointment.EndTime.Hour(), appointment.EndTime.Minute()),
+		StartTime:       appointment.TreatwellStartTime(),
+		EndTime:         appointment.TreatwellEndTime(),
 		Platform:        "DESKTOP",
 		EmployeeId:      appointment.Employee.Treatwell.Id,
 		Notes:           appointment.CustomNotes(),
@@ -35,11 +35,6 @@ func (tw *Treatwell) Book(_ context.Context, appointment models.Appointment) err
 			},
 		},
 	}
-
-	//calendar, err := tw.getCalendar(appointment.StartTime, appointment.EndTime)
-	//if err != nil {
-	//	return fmt.Errorf("failed to get calendar: %w", err)
-	//}
 
 	employeeInfo := tw.employeeInfo[appointment.Employee.Treatwell.Id]
 

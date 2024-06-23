@@ -21,10 +21,12 @@ func (c *Classpass) Book(_ context.Context, appointment models.Appointment) erro
 		Location:    string(appointment.Source),
 		Description: appointment.CustomNotes(),
 		Start: &calendar.EventDateTime{
-			DateTime: appointment.StartTime.In(time.UTC).Format(time.RFC3339),
+			DateTime: appointment.StartTime.Format(time.RFC3339),
+			TimeZone: utils.DefaultIanaTz,
 		},
 		End: &calendar.EventDateTime{
-			DateTime: appointment.EndTime.In(time.UTC).Format(time.RFC3339),
+			DateTime: appointment.EndTime.Format(time.RFC3339),
+			TimeZone: utils.DefaultIanaTz,
 		},
 	}
 
@@ -63,10 +65,12 @@ func (c *Classpass) Block(_ context.Context, employee models.Employee, from, to 
 		Summary:  BlockEventName,
 		Location: string(models.SourceTreatwell),
 		Start: &calendar.EventDateTime{
-			DateTime: from.In(time.UTC).Format(time.RFC3339),
+			DateTime: from.Format(time.RFC3339),
+			TimeZone: utils.DefaultIanaTz,
 		},
 		End: &calendar.EventDateTime{
-			DateTime: to.In(time.UTC).Format(time.RFC3339),
+			DateTime: to.Format(time.RFC3339),
+			TimeZone: utils.DefaultIanaTz,
 		},
 	}
 

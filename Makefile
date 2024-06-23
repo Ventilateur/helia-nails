@@ -1,9 +1,9 @@
-AWS_DEFAULT_PROFILE := helia
+AWS_PROFILE := helia
 AWS_REGION := eu-west-3
 AWS_ACCOUNT_ID := 851725466447
 LAYER_ARN := "arn:aws:lambda:eu-west-3:780235371811:layer:AWS-Parameters-and-Secrets-Lambda-Extension:11"
 
-VERSION := 23
+VERSION := 24
 IMAGE_TAG := $(AWS_ACCOUNT_ID).dkr.ecr.eu-west-3.amazonaws.com/helia-nails/calendar-sync:$(VERSION)
 
 build:

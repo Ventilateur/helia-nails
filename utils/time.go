@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/Ventilateur/helia-nails/core/models"
+	"google.golang.org/api/calendar/v3"
 )
 
 const (
@@ -66,4 +67,21 @@ func EoD(t time.Time) time.Time {
 
 func TimeWithLocation(in time.Time) time.Time {
 	return time.Date(in.Year(), in.Month(), in.Day(), in.Hour(), in.Minute(), 0, 0, DefaultLocation)
+}
+
+func ParseGoogleEventTime(in *calendar.EventDateTime) (time.Time, error) {
+	out, err := time.Parse(time.RFC3339, in.DateTime)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	if in.TimeZone != "" {
+		loc, err := time.LoadLocation(in.TimeZone)
+		if err != nil {
+			return time.Time{}, err
+		}
+		return out.In(loc), nil
+	}
+
+	return out, nil
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Ventilateur/helia-nails/core/models"
+	"github.com/Ventilateur/helia-nails/utils"
 	"google.golang.org/api/calendar/v3"
 )
 
@@ -15,10 +16,12 @@ func (c *Classpass) Update(_ context.Context, appointment models.Appointment) er
 		appointment.Ids.Classpass,
 		&calendar.Event{
 			Start: &calendar.EventDateTime{
-				DateTime: appointment.StartTime.In(time.UTC).Format(time.RFC3339),
+				DateTime: appointment.StartTime.Format(time.RFC3339),
+				TimeZone: utils.DefaultIanaTz,
 			},
 			End: &calendar.EventDateTime{
-				DateTime: appointment.EndTime.In(time.UTC).Format(time.RFC3339),
+				DateTime: appointment.EndTime.Format(time.RFC3339),
+				TimeZone: utils.DefaultIanaTz,
 			},
 		},
 	).Do()
