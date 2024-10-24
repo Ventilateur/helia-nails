@@ -19,9 +19,8 @@ import (
 )
 
 const (
-	loginURL           = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
-	tokenURL           = "https://securetoken.googleapis.com/v1/token"
-	messageLengthLimit = 16384
+	loginURL = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
+	tokenURL = "https://securetoken.googleapis.com/v1/token"
 )
 
 type Planity struct {

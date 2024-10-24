@@ -29,7 +29,9 @@ type PlanityConfig struct {
 	Username     string `yaml:"username"`
 	Password     string `yaml:"password"`
 	WebsocketUrl string `yaml:"websocketUrl"`
-	AccessToken  string `yaml:"-"`
+
+	// Stored separately in parameter store because it will be overridden frequently because of re-login
+	AccessToken string `yaml:"-"`
 }
 
 type ClasspassConfig struct {

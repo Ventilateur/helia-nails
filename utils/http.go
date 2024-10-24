@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-func SendRequest[T any](client *http.Client, method string, url string, headers map[string]string, body io.Reader) (*T, error) {
+func SendRequest[Response any](client *http.Client, method string, url string, headers map[string]string, body io.Reader) (*Response, error) {
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create http request: %w", err)
@@ -28,10 +28,10 @@ func SendRequest[T any](client *http.Client, method string, url string, headers 
 		return nil, fmt.Errorf("failed request: code %d, message '%s': %w", res.StatusCode, bodyStr, err)
 	}
 
-	var authInfo T
-	if err := json.NewDecoder(res.Body).Decode(&authInfo); err != nil {
+	var response Response
+	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
-	return &authInfo, nil
+	return &response, nil
 }

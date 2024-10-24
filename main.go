@@ -41,11 +41,12 @@ func HandleRequest(ctx context.Context, event *Event) (*string, error) {
 			return nil, fmt.Errorf("failed to get config file: %w", err)
 		}
 
+		// Merge platforms' global config file in parameter store (more sensitive)
+		// with the config file in S3 (less sensitive)
+		fullConfig := []byte(fmt.Sprintf("%s\n\n%s", params[event.PlatformConfigPath], configFile))
 		cfg := &config.Config{}
-		if err := yaml.Unmarshal(
-			[]byte(fmt.Sprintf("%s\n\n%s", params[event.PlatformConfigPath], configFile)),
-			cfg,
-		); err != nil {
+
+		if err := yaml.Unmarshal(fullConfig, cfg); err != nil {
 			return nil, fmt.Errorf("failed to parse config: %w", err)
 		}
 
@@ -80,7 +81,7 @@ func HandleRequest(ctx context.Context, event *Event) (*string, error) {
 		}
 
 		from := utils.BoD(time.Now())
-		to := utils.EoD(from.Add(7 * 24 * time.Hour))
+		to := utils.EoD(from.Add(14 * 24 * time.Hour))
 		if err := sync.syncAll(ctx, from, to); err != nil {
 			return nil, fmt.Errorf("failed to sync: %w", err)
 		}
