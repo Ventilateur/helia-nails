@@ -1,6 +1,6 @@
 module github.com/Ventilateur/helia-nails
 
-go 1.22.0
+go 1.23
 
 require (
 	github.com/aws/aws-lambda-go v1.45.0
@@ -8,11 +8,11 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.27.18
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.55.1
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.50.6
+	github.com/coder/websocket v1.8.12
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	golang.org/x/oauth2 v0.15.0
 	google.golang.org/api v0.154.0
 	gopkg.in/yaml.v3 v3.0.1
-	nhooyr.io/websocket v1.8.11
 )
 
 require (

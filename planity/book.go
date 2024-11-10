@@ -7,7 +7,7 @@ import (
 
 	coremodels "github.com/Ventilateur/helia-nails/core/models"
 	"github.com/Ventilateur/helia-nails/planity/models"
-	"nhooyr.io/websocket/wsjson"
+	"github.com/coder/websocket/wsjson"
 )
 
 const (

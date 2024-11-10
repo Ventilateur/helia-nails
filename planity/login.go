@@ -10,9 +10,9 @@ import (
 
 	"github.com/Ventilateur/helia-nails/planity/models"
 	"github.com/Ventilateur/helia-nails/utils"
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 	"github.com/golang-jwt/jwt/v5"
-	"nhooyr.io/websocket"
-	"nhooyr.io/websocket/wsjson"
 )
 
 type AuthInfo struct {

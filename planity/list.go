@@ -8,7 +8,7 @@ import (
 	coremodels "github.com/Ventilateur/helia-nails/core/models"
 	"github.com/Ventilateur/helia-nails/planity/models"
 	"github.com/Ventilateur/helia-nails/utils"
-	"nhooyr.io/websocket/wsjson"
+	"github.com/coder/websocket/wsjson"
 )
 
 func (p *Planity) List(ctx context.Context, employee coremodels.Employee, from, to time.Time) ([]coremodels.Appointment, error) {

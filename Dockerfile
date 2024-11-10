@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 golang:1.22-alpine as build
+FROM --platform=linux/amd64 golang:1.23-alpine as build
 
 ARG AWS_REGION
 ARG AWS_ACCESS_KEY_ID
@@ -12,10 +12,10 @@ ENV AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 WORKDIR /app
 
 # Download aws lambda layer
-RUN apk add aws-cli curl unzip
-RUN curl $(aws lambda get-layer-version-by-arn --arn ${LAYER_ARN} --query 'Content.Location' --output text) --output layer.zip
-RUN unzip layer.zip -d /opt
-RUN rm layer.zip
+RUN apk add aws-cli curl unzip && \
+  curl $(aws lambda get-layer-version-by-arn --arn ${LAYER_ARN} --query 'Content.Location' --output text) --output layer.zip && \
+  unzip layer.zip -d /opt && \
+  rm layer.zip
 
 # Copy dependencies list
 COPY go.mod go.sum ./

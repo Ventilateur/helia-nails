@@ -15,7 +15,7 @@ import (
 
 	"github.com/Ventilateur/helia-nails/config"
 	coremodels "github.com/Ventilateur/helia-nails/core/models"
-	"nhooyr.io/websocket"
+	"github.com/coder/websocket"
 )
 
 const (
