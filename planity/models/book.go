@@ -17,6 +17,7 @@ type BookDetails struct {
 	Id         string            `json:"sq,omitempty"`
 	Title      string            `json:"t,omitempty"`
 	Note       string            `json:"c,omitempty"`
+	ServiceId  string            `json:"se,omitempty"`
 	Start      string            `json:"s,omitempty"`
 	Duration   int64             `json:"d,omitempty"`
 	Position   int64             `json:"st,omitempty"` // number of minutes since 00:00
@@ -27,14 +28,13 @@ type BookDetails struct {
 	Cat        map[string]string `json:"cat,omitempty"`
 }
 
-func NewBookRequest(reqId int64, employeeId string, start time.Time, end time.Time, title string, note string) (string, *Message[BookRequest]) {
+func NewBookRequest(employeeId string, serviceId string, start time.Time, end time.Time, title string, note string) *Message[BookRequest] {
 	id := randId()
 	startOfDay := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
-	return id, &Message[BookRequest]{
+	return &Message[BookRequest]{
 		Type: "d",
 		Desc: MessageDescription[BookRequest]{
-			RequestId: reqId,
-			Action:    "m",
+			Action: "m",
 			Body: BookRequest{
 				Path: "/",
 				D: map[string]BookDetails{
@@ -42,6 +42,7 @@ func NewBookRequest(reqId int64, employeeId string, start time.Time, end time.Ti
 						Id:         id,
 						Title:      title,
 						Note:       note,
+						ServiceId:  serviceId,
 						Start:      start.Format(utils.PlanityTimeFormat),
 						Duration:   int64(end.Sub(start).Minutes()),
 						Position:   int64(start.Sub(startOfDay).Minutes()),

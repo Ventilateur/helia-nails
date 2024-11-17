@@ -12,19 +12,19 @@ import (
 
 const (
 	blockTitle = "__BLOCK__"
-	bookTitle  = "__HELIA_BOOK__"
 )
 
 func (p *Planity) Book(ctx context.Context, appointment coremodels.Appointment) error {
 	reqId := p.nextReqId()
-	_, req := models.NewBookRequest(
-		reqId,
+	req := models.NewBookRequest(
 		appointment.Employee.Planity.Id,
+		appointment.Service.Planity.Id,
 		appointment.StartTime,
 		appointment.EndTime,
-		bookTitle,
+		fmt.Sprintf("[%s] %s", appointment.Source, appointment.ClientName),
 		appointment.CustomNotes(),
 	)
+	req.Desc.RequestId = reqId
 
 	if err := wsjson.Write(ctx, p.wsConn, req); err != nil {
 		return fmt.Errorf("failed to send book request: %w", err)
@@ -56,14 +56,15 @@ func (p *Planity) Block(ctx context.Context, employee coremodels.Employee, from,
 	}
 
 	reqId := p.nextReqId()
-	_, req := models.NewBookRequest(
-		reqId,
+	req := models.NewBookRequest(
 		employee.Planity.Id,
+		"",
 		from,
 		to,
 		blockTitle,
 		"",
 	)
+	req.Desc.RequestId = reqId
 
 	if err := wsjson.Write(ctx, p.wsConn, req); err != nil {
 		return fmt.Errorf("failed to send book request: %w", err)
